@@ -205,11 +205,23 @@ export async function reflect(
   return { response, basedOn };
 }
 
-export async function cloneBank(source: string, target: string): Promise<string> {
-  return hindsight().cloneBank(source, target, { includeData: true, includeBankConfig: true });
-}
-
 export function describeError(err: unknown): string {
   if (err instanceof HindsightError) return `Hindsight ${err.statusCode ?? ""} ${err.message}`.trim();
   return err instanceof Error ? err.message : String(err);
+}
+
+export async function listDocumentIds(bankId = BANK_ID): Promise<string[]> {
+  const ids: string[] = [];
+  for (let offset = 0; ; offset += 100) {
+    const page = await hindsight().listDocuments(bankId, { limit: 100, offset });
+    ids.push(...page.items.map((d) => String((d as { id: string }).id)));
+    if (page.items.length < 100) return ids;
+  }
+}
+
+/** Remove on-call feedback documents (and their memories), e.g. to reset the demo. */
+export async function deleteFeedbackDocuments(bankId = BANK_ID): Promise<number> {
+  const ids = (await listDocumentIds(bankId)).filter((id) => id.startsWith("feedback-"));
+  for (const id of ids) await hindsight().deleteDocument(bankId, id);
+  return ids.length;
 }
