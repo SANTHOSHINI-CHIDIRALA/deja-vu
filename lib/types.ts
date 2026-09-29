@@ -103,11 +103,15 @@ export const HypothesisSchema = z.object({
   confidence: z.coerce.number().min(0).max(1).catch(0.5),
   citedIncidents: z.array(z.string()).default([]),
   evidence: z.string().default(""),
+  recommendedFix: z.string().default(""),
 });
 
 export const NextCheckSchema = z.object({
   description: z.string().min(1),
-  command: z.string().nullish().transform((v) => v ?? null),
+  command: z
+    .string()
+    .nullish()
+    .transform((v) => (v && v.trim() ? v : null)),
   requiresApproval: z.boolean().default(false),
 });
 
@@ -125,15 +129,18 @@ export const DiagnosisSchema = z.object({
     )
     .default([]),
   suggestedExpert: z
-    .object({ name: z.string(), reason: z.string().default("") })
+    .object({ name: z.string().default(""), reason: z.string().default("") })
     .nullish()
-    .transform((v) => v ?? null),
+    .transform((v) => (v && v.name.trim() ? v : null)),
 });
 
 export type Hypothesis = z.infer<typeof HypothesisSchema>;
 export type Diagnosis = z.infer<typeof DiagnosisSchema>;
 
-/** JSON Schema twin of DiagnosisSchema, handed to Hindsight reflect's structured output. */
+/**
+ * JSON Schema twin of DiagnosisSchema, handed to Hindsight reflect's structured output.
+ * Note: reflect rejects union types such as ["string", "null"], so "none" is an empty string.
+ */
 export const DIAGNOSIS_JSON_SCHEMA: Record<string, unknown> = {
   type: "object",
   required: ["summary", "hypotheses", "nextChecks", "fixesToAvoid", "suggestedExpert"],
@@ -145,14 +152,15 @@ export const DIAGNOSIS_JSON_SCHEMA: Record<string, unknown> = {
       description: "Ranked root-cause hypotheses, most likely first.",
       items: {
         type: "object",
-        required: ["title", "family", "rootCause", "confidence", "citedIncidents", "evidence"],
+        required: ["title", "family", "rootCause", "confidence", "citedIncidents", "evidence", "recommendedFix"],
         properties: {
           title: { type: "string" },
           family: { type: "string", enum: [...FAMILIES, "unknown"] },
           rootCause: { type: "string" },
           confidence: { type: "number", minimum: 0, maximum: 1 },
           citedIncidents: { type: "array", items: { type: "string", pattern: "^INC-\\d{4}$" } },
-          evidence: { type: "string" },
+          evidence: { type: "string", description: "Which alert/log/change details match the cited incidents." },
+          recommendedFix: { type: "string", description: "The fix that worked for the cited incidents, adapted to this alert." },
         },
       },
     },
@@ -163,7 +171,7 @@ export const DIAGNOSIS_JSON_SCHEMA: Record<string, unknown> = {
         required: ["description", "command", "requiresApproval"],
         properties: {
           description: { type: "string" },
-          command: { type: ["string", "null"] },
+          command: { type: "string", description: "Exact command/query to run, or empty string." },
           requiresApproval: { type: "boolean" },
         },
       },
@@ -181,7 +189,8 @@ export const DIAGNOSIS_JSON_SCHEMA: Record<string, unknown> = {
       },
     },
     suggestedExpert: {
-      type: ["object", "null"],
+      type: "object",
+      description: "Engineer who resolved the most similar past incidents (name empty if unknown).",
       required: ["name", "reason"],
       properties: { name: { type: "string" }, reason: { type: "string" } },
     },

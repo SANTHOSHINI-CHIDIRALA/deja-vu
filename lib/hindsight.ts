@@ -36,7 +36,7 @@ export const DIRECTIVES: { name: string; content: string }[] = [
 export const DISPOSITION = { skepticism: 5, literalism: 5, empathy: 3 } as const;
 
 const RETAIN_MISSION =
-  "Extract incident facts: incident ID, date, affected service, symptoms, alert names, the preceding deploy/config change (commit sha and author), the root cause, the fix that worked, every fix that was tried and FAILED, who resolved it, and time to resolve. Keep incident IDs verbatim.";
+  "Extract incident facts: incident ID, date, affected service, symptoms, alert names, the preceding deploy/config change (commit sha and author), the root cause, the fix that worked, every fix that was tried and FAILED, who resolved it, and time to resolve. Keep incident IDs verbatim. For on-call feedback on the agent's own suggestions, always keep the verdict (WORKED or FAILED), the exact fix and the incident ID in the same fact.";
 
 const OBSERVATIONS_MISSION =
   "Consolidate recurring failure patterns per service: which changes tend to trigger which failures, which fixes reliably work, which fixes repeatedly fail, and which engineers resolve which kinds of incidents. Always keep the incident IDs that support each pattern.";
@@ -164,14 +164,21 @@ function toMemoryItem(r: RecallResult): MemoryItem {
 
 export async function recallMemories(
   query: string,
-  opts: { types?: string[]; maxTokens?: number; tags?: string[]; bankId?: string; budget?: "low" | "mid" | "high" } = {},
+  opts: {
+    types?: string[];
+    maxTokens?: number;
+    tags?: string[];
+    tagsMatch?: "any" | "all" | "any_strict" | "all_strict";
+    bankId?: string;
+    budget?: "low" | "mid" | "high";
+  } = {},
 ): Promise<MemoryItem[]> {
   const res = await hindsight().recall(opts.bankId ?? BANK_ID, query, {
     types: opts.types ?? ["world", "experience", "observation"],
     maxTokens: opts.maxTokens ?? 3000,
     budget: opts.budget ?? "mid",
     tags: opts.tags,
-    tagsMatch: opts.tags ? "any" : undefined,
+    tagsMatch: opts.tags ? (opts.tagsMatch ?? "any") : undefined,
   });
   return res.results.map(toMemoryItem);
 }
