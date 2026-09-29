@@ -1,15 +1,16 @@
 # Déjà Vu — the on-call agent that remembers every outage
 
+**Live demo:** https://deja-vu-lake.vercel.app · **Demo video:** https://youtu.be/ggVOoQiVPHc
+
 > When production breaks, Déjà Vu recalls how every similar incident was diagnosed and fixed before, ranks the most likely root cause with **cited past incidents**, warns you about **fixes that already failed**, tells you **who fixed it last time** — and learns from every resolution, so it gets measurably better over time.
 
 Built on [Hindsight](https://hindsight.vectorize.io) agent memory + Groq.
 
-<!-- Screenshots / demo GIF -->
 | Incident console (memory OFF vs ON) | Learning curve |
 |---|---|
-| ![Console screenshot placeholder](docs/console.png) | ![Learning curve placeholder](docs/learning.png) |
+| ![Incident console: the same alert without and with memory](docs/console.png) | ![Learning curve: right fix first try and known-failed fixes repeated](docs/learning.png) |
 
-_60-second demo GIF: `docs/demo.gif` (placeholder)._
+_Demo video: [watch the walkthrough on YouTube](https://youtu.be/ggVOoQiVPHc)._
 
 ---
 
@@ -30,7 +31,7 @@ Déjà Vu is an incident console, not a chatbot. The same alert is diagnosed twi
 2. **Without memory** (e.g.): "Gunicorn overload, raise pod CPU limits." **With Déjà Vu:** "DB pool exhaustion — deploy `cabd556` doubled workers; same as INC-2237 / INC-2304. Restarting pods FAILED in INC-2292 and INC-2357. Page Priya Raman — she resolved 4 of these."
 3. Open the **Memory Inspector**: the exact world facts, experiences and consolidated observations used, with recall scores. Click any `INC-xxxx` to open the past incident.
 4. Click **"✕ This suggestion failed"** on the top fix → **Re-run**. The failed fix moves to *Known-failed fixes*, and a different proven fix is recommended. A purple "What changed" banner shows the diff.
-5. Open **Learning curve**: 20 held-out incidents replayed chronologically — memory ON vs OFF.
+5. Open **Learning curve**: 40 incidents replayed chronologically from an **empty** memory bank. **Right fix first try: memory OFF 0% vs memory ON 70%.**
 
 ## Architecture
 

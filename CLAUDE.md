@@ -1,17 +1,9 @@
 # Déjà Vu — the on-call agent that remembers every outage
 
-Hackathon: "AI Agents That Learn Using Hindsight". HARD DEADLINE: submission 29 Sep 2026, 23:59 IST.
 Target: working, deployed, demo-ready app by 29 Sep 18:00 IST. Scope is ruthless — P0 first, P1 only if P0 is done and deployed.
 
 ## One-liner
 When production breaks, Déjà Vu recalls how every similar incident was diagnosed and fixed before, suggests the most likely root cause with cited past incidents, and learns from each resolution — including fixes that FAILED — so it gets measurably better over time.
-
-## Judging criteria this build must hit
-- Innovation 30% — not a chatbot: an incident console with a measurable learning curve.
-- Hindsight memory 25% — memory is the product. Always visible, always cited, clear before/after.
-- Technical 20% — clean, typed, handles LLM/tool-call errors, retries, empty states.
-- UX 15% — the value is obvious in 60 seconds.
-- Impact 10% — every engineering org with on-call has this problem.
 
 ## Stack
 - Next.js (App Router) + TypeScript + Tailwind. Deployed on Vercel.
