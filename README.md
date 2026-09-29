@@ -24,6 +24,8 @@ Déjà Vu is an incident console, not a chatbot. The same alert is diagnosed twi
 
 ## 60-second demo
 
+> The full 3-minute stage script, with exact clicks and what should appear at each step, is in **[DEMO.md](DEMO.md)**.
+
 1. *"It's 2:47am. Checkout success rate is dropping. You're on call."* — pick **INC-2369** and hit **Diagnose**.
 2. **Without memory** (e.g.): "Gunicorn overload, raise pod CPU limits." **With Déjà Vu:** "DB pool exhaustion — deploy `cabd556` doubled workers; same as INC-2237 / INC-2304. Restarting pods FAILED in INC-2292 and INC-2357. Page Priya Raman — she resolved 4 of these."
 3. Open the **Memory Inspector**: the exact world facts, experiences and consolidated observations used, with recall scores. Click any `INC-xxxx` to open the past incident.
@@ -65,6 +67,8 @@ flowchart LR
   S["npm run seed"] -- "create bank + retain history + wait (Operations API)" --> H
   E["npm run eval"] -- "replay eval, judge, retain resolutions" --> H
   E --> R[("data/eval-results.json")] --> L
+  EC["npm run eval:cold"] -- "empty bank; diagnose, judge, then retain each incident" --> H
+  EC --> RC[("data/eval-cold-results.json")] --> L
 ```
 
 Code layout (small, typed modules):
@@ -100,14 +104,36 @@ Code layout (small, typed modules):
 
 - **LLM:** every Groq call has a timeout, 2 retries with exponential backoff / `retry-after`, a fallback model chain, and zod validation with one repair turn. JSON mode is dropped automatically if a model rejects it.
 - **Hindsight:** if reflect's structured output is missing/invalid, its markdown answer is structured by Groq; if reflect fails entirely, the agent diagnoses from recalled memories via Groq. Warnings are surfaced in the UI rather than crashing it.
-- **UI:** loading skeletons, empty states, per-column error states, feedback errors inline.
+- **UI:** the memory-ON column streams real pipeline progress (NDJSON from `/api/diagnose`: similar-incident recall → failed-fix verdicts → reflect) so the ~13 s wait is visible work, not a spinner. Also: empty states, per-column error states, inline feedback errors. Every API route sets `maxDuration = 60` for Vercel.
 
 > Note: the spec's fallback model `qwen/qwen3-32b` is no longer served on Groq (`404 model_not_found`), so the chain is `openai/gpt-oss-120b → qwen/qwen3.8-27b → openai/gpt-oss-20b`.
 > Hindsight reflect's `response_schema` rejects JSON-Schema union types (`["string","null"]` → HTTP 500), so the schema uses empty strings for "none".
 
 ## Learning curve result
 
-From `npm run eval` (`data/eval-results.json`, 20 held-out Oct 2026 incidents, replayed chronologically, LLM-judged on failure-family match):
+### Cold start: from an empty memory (`npm run eval:cold`)
+
+`data/eval-cold-results.json` holds all 60 incidents (40 history, Mar–Sep, then 20 held-out, Oct) replayed chronologically against **`paynest-sre-cold`, a bank that starts empty** and is configured like the main bank. Each alert is diagnosed with memory OFF and ON and LLM-judged, **then** its resolution is retained, as if the team had just resolved it. Memory ON only ever knows about earlier incidents. The run took 18.4 min.
+
+| Incidents | Memories in bank at start | Memory OFF | Memory ON |
+|---|---|---|---|
+| 1–10 | 0 | 100% | 100% |
+| 11–20 | 113 | 100% | 100% |
+| 21–30 | 233 | 100% | 100% |
+| 31–40 | 341 | 100% | 100% |
+| 41–50 (Oct, held-out) | 457 | **80%** | 100% |
+| 51–60 (Oct, held-out) | 570 | **90%** | 100% |
+| **All 60** | 0 → 664 | **95%** (57/60) | **100%** (60/60) |
+
+**Honest read: the memory-ON curve does not climb, it is flat at 100%.**
+- With an empty bank, reflect still reasons from the alert itself, and the 40 generated history incidents have unambiguous log signatures. Both agents get every one of them right.
+- The memory bank grows steadily (0 → 664 memories), and citations per answer grow with it (1–4 over the first 5 incidents, 7.2 on average in October). But on this data, more memory makes the answers better *sourced*, not more *accurate*.
+- The only accuracy gap is on the October red herrings. Memory OFF missed **INC-2369** ("Gunicorn overload"), **INC-2387** ("DB pool exhaustion" when it was a Redis stampede) and **INC-2411** ("logging-library upgrade" when it was an SBI bank timeout). Memory ON got all three right, with 465–590 memories in the bank.
+- To show a *rising* curve, the early history would need incidents that are ambiguous without company context. The current generator doesn't produce enough of them. That is a data limitation, not something we tuned around.
+
+### Warm start: 40 past incidents already in memory (`npm run eval`)
+
+From `data/eval-results.json`: the 20 held-out Oct 2026 incidents, replayed chronologically and LLM-judged on failure-family match.
 
 | | Memory OFF (plain Groq) | Memory ON (Déjà Vu) |
 |---|---|---|
@@ -165,6 +191,7 @@ Deploy on Vercel: import the repo and set the env vars below. `data/eval-results
 | `npm run check` | Connectivity check for Groq and Hindsight |
 | `npm run gen-data` | Regenerate `data/history.json` + `data/eval.json` (deterministic) |
 | `npm run seed` | Create/configure the bank, retain history, wait for ops. Idempotent. `-- --reset` recreates the bank; `-- --clear-feedback` removes demo feedback memories |
+| `npm run eval:cold` | Cold-start learning curve: replay all 60 incidents chronologically against an empty `paynest-sre-cold` bank, scoring each before retaining its resolution. Writes `data/eval-cold-results.json` (~20 min). `-- --history-stride 2` subsamples history; `-- --limit N` for a smoke run |
 | `npm run eval` | Seed an isolated `paynest-sre-eval` bank, replay the 20 eval incidents (memory OFF vs ON), LLM-judge them, retain each resolution, write `data/eval-results.json`. `-- --limit N` for a quick run |
 | `npm run build` / `start` | Production build / server |
 

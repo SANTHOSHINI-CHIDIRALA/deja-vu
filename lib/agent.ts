@@ -188,7 +188,9 @@ export async function diagnoseWithMemory(
   progress({
     step: "feedback",
     status: "done",
-    detail: feedback.length ? `${feedback.length} on-call verdicts (${failedVerdicts} failed fixes)` : "no on-call verdicts yet",
+    detail: feedback.length
+      ? `${feedback.length} on-call verdict${feedback.length === 1 ? "" : "s"} (${failedVerdicts} failed fix${failedVerdicts === 1 ? "" : "es"})`
+      : "no on-call verdicts yet",
   });
 
   // 3. Reflect reasons over the bank with mission, directives and disposition.
