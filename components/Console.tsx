@@ -40,6 +40,15 @@ export function Console({ incidents }: { incidents: IncidentInput[] }) {
   const [drawerId, setDrawerId] = useState<string | null>(null);
 
   const selected = incidents.find((i) => i.id === selectedId);
+  const pastedService = raw.match(/\b(payments-api|upi-gateway|ledger-svc|auth-svc|notif-worker|postgres-primary|redis-cache|kafka)\b/)?.[1];
+
+  const resetRuns = () => {
+    setOff({ status: "idle" });
+    setOn({ status: "idle" });
+    setPreviousOn(null);
+    setFeedback({});
+    setFeedbackGiven(null);
+  };
   const request = source === "pick" ? { incidentId: selectedId } : { raw };
   const incidentKey = source === "pick" ? selectedId : "PASTED-ALERT";
 
@@ -71,8 +80,8 @@ export function Console({ incidents }: { incidents: IncidentInput[] }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           incidentId: incidentKey,
-          service: selected?.service ?? "unknown",
-          alertname: selected?.alert?.alertname ?? "pasted alert",
+          service: (source === "pick" ? selected?.service : pastedService) ?? "unknown",
+          alertname: (source === "pick" ? selected?.alert?.alertname : undefined) ?? "pasted alert",
           hypothesisTitle: h.title,
           fix: h.recommendedFix || h.rootCause,
           outcome,
@@ -101,7 +110,10 @@ export function Console({ incidents }: { incidents: IncidentInput[] }) {
                 key={s}
                 role="tab"
                 aria-selected={source === s}
-                onClick={() => setSource(s)}
+                onClick={() => {
+                  setSource(s);
+                  resetRuns();
+                }}
                 className={`rounded px-3 py-1 ${source === s ? "bg-ink-700 text-ink-100" : "text-ink-400"}`}
               >
                 {s === "pick" ? "Incoming alert" : "Paste alert"}
@@ -111,7 +123,10 @@ export function Console({ incidents }: { incidents: IncidentInput[] }) {
           {source === "pick" && (
             <select
               value={selectedId}
-              onChange={(e) => setSelectedId(e.target.value)}
+              onChange={(e) => {
+                setSelectedId(e.target.value);
+                resetRuns();
+              }}
               className="w-full min-w-0 max-w-full truncate rounded-md border border-ink-700 bg-ink-950 px-3 py-2 text-sm outline-none focus:border-accent sm:w-auto sm:flex-1"
               aria-label="Choose an incident"
             >
