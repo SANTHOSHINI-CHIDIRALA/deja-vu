@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import type { DiagnoseResult, FeedbackOutcome, Hypothesis, IncidentInput } from "@/lib/types";
+import type { DiagnoseResult, FeedbackOutcome, Hypothesis, IncidentInput, ProgressEvent } from "@/lib/types";
 import { DiagnosisSkeleton, DiagnosisView, type FeedbackStatus } from "./DiagnosisView";
 import { IncidentDrawer } from "./IncidentDrawer";
 import { MemoryInspector } from "./MemoryInspector";
+import { INITIAL_PROGRESS, MemoryProgress, applyProgress, type ProgressState } from "./MemoryProgress";
 import { SeverityBadge, formatIst } from "./ui";
 
 type Run = { status: "idle" } | { status: "loading" } | { status: "error"; message: string } | { status: "done"; result: DiagnoseResult };
@@ -27,12 +28,44 @@ async function diagnose(mode: "off" | "on", body: { incidentId?: string; raw?: s
   return json as DiagnoseResult;
 }
 
+/** Memory-ON diagnosis over the NDJSON stream, reporting live pipeline progress. */
+async function diagnoseStreaming(body: { incidentId?: string; raw?: string }, onProgress: (e: ProgressEvent) => void): Promise<DiagnoseResult> {
+  const res = await fetch("/api/diagnose", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode: "on", stream: true, ...body }),
+  });
+  if (!res.ok || !res.body) {
+    const json = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    throw new Error(json.error ?? `HTTP ${res.status}`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+    let nl: number;
+    while ((nl = buffer.indexOf("\n")) >= 0) {
+      const line = buffer.slice(0, nl).trim();
+      buffer = buffer.slice(nl + 1);
+      if (!line) continue;
+      const msg = JSON.parse(line) as ({ type: "progress" } & ProgressEvent) | { type: "result"; result: DiagnoseResult } | { type: "error"; error: string };
+      if (msg.type === "progress") onProgress(msg);
+      else if (msg.type === "result") return msg.result;
+      else throw new Error(msg.error);
+    }
+    if (done) throw new Error("Stream ended before a result arrived");
+  }
+}
+
 export function Console({ incidents }: { incidents: IncidentInput[] }) {
   const [source, setSource] = useState<"pick" | "paste">("pick");
   const [selectedId, setSelectedId] = useState(incidents[1]?.id ?? incidents[0]?.id ?? "");
   const [raw, setRaw] = useState(PASTE_EXAMPLE);
   const [off, setOff] = useState<Run>({ status: "idle" });
   const [on, setOn] = useState<Run>({ status: "idle" });
+  const [onProgress, setOnProgress] = useState<ProgressState>(INITIAL_PROGRESS);
   const [previousOn, setPreviousOn] = useState<DiagnoseResult | null>(null);
   const [feedback, setFeedback] = useState<Record<number, FeedbackStatus>>({});
   const [feedbackGiven, setFeedbackGiven] = useState<{ outcome: FeedbackOutcome; title: string } | null>(null);
@@ -55,9 +88,10 @@ export function Console({ incidents }: { incidents: IncidentInput[] }) {
   const runOn = async (keepPrevious: boolean) => {
     setPreviousOn(keepPrevious && on.status === "done" ? on.result : null);
     setOn({ status: "loading" });
+    setOnProgress(INITIAL_PROGRESS);
     setFeedback({});
     try {
-      setOn({ status: "done", result: await diagnose("on", request) });
+      setOn({ status: "done", result: await diagnoseStreaming(request, (e) => setOnProgress((p) => applyProgress(p, e))) });
     } catch (e) {
       setOn({ status: "error", message: (e as Error).message });
     }
@@ -195,7 +229,7 @@ export function Console({ incidents }: { incidents: IncidentInput[] }) {
                 </div>
               )}
               {previousOn && on.status === "done" && <WhatChanged before={previousOn} after={on.result} />}
-              <ColumnBody run={on} memory onOpenIncident={setDrawerId} onFeedback={sendFeedback} feedback={feedback} />
+              <ColumnBody run={on} memory progress={onProgress} onOpenIncident={setDrawerId} onFeedback={sendFeedback} feedback={feedback} />
             </div>
           </div>
           {on.status === "done" && <MemoryInspector result={on.result} onOpenIncident={setDrawerId} />}
@@ -277,12 +311,14 @@ function ColumnHeader({ title, subtitle, run, tone }: { title: string; subtitle:
 function ColumnBody({
   run,
   memory,
+  progress,
   onOpenIncident,
   onFeedback,
   feedback,
 }: {
   run: Run;
   memory: boolean;
+  progress?: ProgressState;
   onOpenIncident?: (id: string) => void;
   onFeedback?: (h: Hypothesis, index: number, outcome: FeedbackOutcome, note: string) => void;
   feedback?: Record<number, FeedbackStatus>;
@@ -294,7 +330,15 @@ function ColumnBody({
         {memory && <span className="block">Déjà Vu will recall every similar outage PayNest has had.</span>}
       </p>
     );
-  if (run.status === "loading") return <DiagnosisSkeleton memory={memory} />;
+  if (run.status === "loading")
+    return progress ? (
+      <div className="space-y-4">
+        <MemoryProgress progress={progress} />
+        <DiagnosisSkeleton memory={memory} compact />
+      </div>
+    ) : (
+      <DiagnosisSkeleton memory={memory} />
+    );
   if (run.status === "error")
     return (
       <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">

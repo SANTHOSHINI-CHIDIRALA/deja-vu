@@ -208,12 +208,12 @@ function HypothesisCard({
   );
 }
 
-export function DiagnosisSkeleton({ memory }: { memory: boolean }) {
+export function DiagnosisSkeleton({ memory, compact = false }: { memory: boolean; compact?: boolean }) {
   return (
     <div className="space-y-4" aria-busy="true">
-      <p className="font-mono text-xs text-ink-400">
-        {memory ? "recall → reflect over paynest-sre memory bank…" : "asking the LLM with no memory…"}
-      </p>
+      {!compact && (
+        <p className="font-mono text-xs text-ink-400">{memory ? "recall → reflect over paynest-sre memory bank…" : "asking the LLM with no memory…"}</p>
+      )}
       <div className="skeleton h-4 w-11/12" />
       <div className="skeleton h-4 w-9/12" />
       {[0, 1, 2].map((i) => (
