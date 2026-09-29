@@ -197,7 +197,7 @@ function npci({ rng, startedAt }: Ctx): Scenario {
     { fix: "raised npci-client timeout 30s → 60s", why: "threads held twice as long, starvation spread to healthy banks" },
     { fix: "rolled back the latest upi-gateway deploy", why: "no change; the deploy was unrelated" },
     { fix: "bulk-retried failed ReqPay calls", why: "risk of duplicate debits; stopped by payments lead" },
-  ]).slice(0, rng.int(1, 2));
+  ].filter((f) => c.kind !== "none" || !f.fix.startsWith("rolled back"))).slice(0, rng.int(1, 2));
   return {
     title: `upi-gateway success rate drop — ${bank} timeouts at NPCI`,
     service: "upi-gateway",
