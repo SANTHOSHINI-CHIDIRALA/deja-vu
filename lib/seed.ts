@@ -4,7 +4,7 @@ import {
   configureBank,
   deleteBankIfExists,
   deleteFeedbackDocuments,
-  getStats,
+  hindsight,
   listDocumentIds,
   retainItems,
   waitForOperations,
@@ -52,8 +52,10 @@ export async function seedBank(
   const { failed } = await waitForOperations(opIds, { bankId, onProgress: (m) => log(`  ${m}`) });
   if (failed.length) log(`Some operations failed:\n  ${failed.join("\n  ")}`);
 
-  const stats = await getStats(bankId);
-  log(
-    `Done. documents=${stats.total_documents} memories=${stats.total_nodes} by type=${JSON.stringify(stats.nodes_by_fact_type)} observations=${stats.total_observations ?? "?"}`,
-  );
+  const docs = await listDocumentIds(bankId);
+  const byType: Record<string, number> = {};
+  for (const type of ["world", "experience", "observation"]) {
+    byType[type] = (await hindsight().listMemories(bankId, { type, limit: 1 })).total;
+  }
+  log(`Done. documents=${docs.length} memories by type=${JSON.stringify(byType)}`);
 }

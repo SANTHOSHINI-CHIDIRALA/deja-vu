@@ -17,16 +17,23 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { diagnoseWithMemory, diagnoseWithoutMemory } from "../lib/agent";
 import { judge, summarise, type EvalResults, type EvalRow, type SideResult } from "../lib/eval";
-import { BANK_ID, describeError, retainItems, waitForOperations } from "../lib/hindsight";
+import { BANK_ID, bankExists, describeError, listDocumentIds, retainItems, waitForOperations } from "../lib/hindsight";
 import { seedBank } from "../lib/seed";
-import { EVAL, incidentTags, renderIncidentDocument, toInput } from "../lib/incidents";
+import { EVAL, HISTORY, incidentTags, renderIncidentDocument, toInput } from "../lib/incidents";
 import { PRIMARY_MODEL } from "../lib/llm";
 import type { DiagnoseResult, Incident } from "../lib/types";
 
 const EVAL_BANK = `${BANK_ID}-eval`;
 
 async function prepareEvalBank(): Promise<void> {
-  // A fresh bank seeded from history only, so demo feedback and earlier eval runs never leak in.
+  // The eval bank must contain history only, so demo feedback and earlier eval runs never leak in.
+  const expected = HISTORY.map((i) => i.id).sort().join(",");
+  const actual = (await bankExists(EVAL_BANK)) ? (await listDocumentIds(EVAL_BANK)).sort().join(",") : "";
+  if (actual === expected) {
+    console.log(`Reusing ${EVAL_BANK}: it holds exactly the ${HISTORY.length} history incidents.`);
+    await waitForOperations([], { bankId: EVAL_BANK });
+    return;
+  }
   console.log(`Preparing isolated eval bank ${EVAL_BANK} from history...`);
   let lastProgress = 0;
   await seedBank(EVAL_BANK, {

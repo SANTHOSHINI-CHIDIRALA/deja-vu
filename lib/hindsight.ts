@@ -114,9 +114,22 @@ export async function getStats(bankId = BANK_ID) {
   return res.data;
 }
 
+/** Count of pending + processing operations on a bank, from the Operations API. */
+async function activeOperations(bankId: string): Promise<number> {
+  const client = rawClient();
+  let total = 0;
+  for (const status of ["pending", "processing"]) {
+    const res = await sdk.listOperations({ client, path: { bank_id: bankId }, query: { status, limit: 1 } });
+    if (res.error || !res.data) throw new Error(`listOperations failed: ${JSON.stringify(res.error)}`);
+    total += res.data.total;
+  }
+  return total;
+}
+
 /**
- * Poll the Operations API until the given operations (or, if none given, every
- * pending operation on the bank) reach a terminal state.
+ * Poll the Operations API until the given operations and every other pending
+ * operation on the bank (e.g. consolidation) reach a terminal state.
+ * (We don't rely on /stats: it can lag badly after a bank is deleted and recreated.)
  */
 export async function waitForOperations(
   operationIds: string[] = [],
@@ -127,6 +140,7 @@ export async function waitForOperations(
   const client = rawClient();
   const failed: string[] = [];
   const pending = new Set(operationIds);
+  await sleep(1500); // let freshly queued work register
   while (Date.now() < deadline) {
     for (const id of [...pending]) {
       const res = await sdk.getOperationStatus({ client, path: { bank_id: bankId, operation_id: id } });
@@ -137,12 +151,9 @@ export async function waitForOperations(
         failed.push(`${id}: ${res.data?.error_message ?? status}`);
       }
     }
-    const stats = await getStats(bankId);
-    const bankPending = stats.pending_operations + (stats.pending_consolidation ?? 0);
-    opts.onProgress?.(
-      `tracked=${pending.size} bank_pending_ops=${stats.pending_operations} pending_consolidation=${stats.pending_consolidation ?? 0} memories=${stats.total_nodes}`,
-    );
-    if (pending.size === 0 && bankPending === 0) return { failed };
+    const active = await activeOperations(bankId);
+    opts.onProgress?.(`tracked=${pending.size} active_bank_operations=${active}`);
+    if (pending.size === 0 && active === 0) return { failed };
     await sleep(3000);
   }
   throw new Error(`Timed out waiting for Hindsight operations on ${bankId}`);
