@@ -12,12 +12,14 @@ const Body = z.object({
   mode: z.enum(["off", "on"]),
   incidentId: z.string().optional(),
   raw: z.string().max(20_000).optional(),
+  /** Stream NDJSON progress events ({type:"progress"}) before the final {type:"result"} line. */
+  stream: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
-  const { mode, incidentId, raw } = parsed.data;
+  const { mode, incidentId, raw, stream } = parsed.data;
 
   let input: IncidentInput;
   if (incidentId) {
@@ -29,6 +31,27 @@ export async function POST(req: Request) {
     input = { raw, service, id: "PASTED-ALERT" };
   } else {
     return NextResponse.json({ error: "Provide incidentId or raw alert text" }, { status: 400 });
+  }
+
+  if (mode === "on" && stream) {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const send = (obj: unknown) => controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
+        try {
+          const result = await diagnoseWithMemory(input, { onProgress: (e) => send({ type: "progress", ...e }) });
+          send({ type: "result", result });
+        } catch (err) {
+          console.error("[diagnose:on]", err);
+          send({ type: "error", error: describeError(err) });
+        } finally {
+          controller.close();
+        }
+      },
+    });
+    return new Response(body, {
+      headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" },
+    });
   }
 
   try {

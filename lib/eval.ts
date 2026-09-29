@@ -1,7 +1,9 @@
 /** Evaluation: LLM-judge scoring and the eval-results.json shape consumed by /learning. */
 import { z } from "zod";
+import { describeError, hindsight, retainItems } from "./hindsight";
+import { incidentTags, renderIncidentDocument } from "./incidents";
 import { chatJson } from "./llm";
-import { FAMILIES, FAMILY_LABELS, type Diagnosis, type Family, type Incident } from "./types";
+import { FAMILIES, FAMILY_LABELS, type DiagnoseResult, type Diagnosis, type Family, type Incident } from "./types";
 
 export interface SideResult {
   topTitle: string;
@@ -92,4 +94,113 @@ export function summarise(rows: EvalRow[]): EvalResults["summary"] {
     firstHalf: { off: acc(rows.slice(0, half), "off"), on: acc(rows.slice(0, half), "on") },
     secondHalf: { off: acc(rows.slice(half), "off"), on: acc(rows.slice(half), "on") },
   };
+}
+
+/** Run one agent on an incident and score its answer with the judge. Never throws. */
+export async function scoreSide(incident: Incident, run: () => Promise<DiagnoseResult>): Promise<SideResult> {
+  try {
+    const r = await run();
+    const top = r.diagnosis.hypotheses[0]!;
+    const j = await judge(incident, r.diagnosis);
+    return {
+      topTitle: top.title,
+      topRootCause: top.rootCause,
+      judgedFamilies: j.families,
+      correct: j.families[0] === incident.family,
+      top3Correct: j.families.slice(0, 3).includes(incident.family),
+      confidence: top.confidence,
+      latencyMs: r.latencyMs,
+      citedIncidents: r.citedIncidents,
+      fixesToAvoid: r.diagnosis.fixesToAvoid.length,
+      model: r.model,
+      judgeReason: j.reason,
+    };
+  } catch (err) {
+    return {
+      topTitle: "(error)",
+      topRootCause: "",
+      judgedFamilies: [],
+      correct: false,
+      top3Correct: false,
+      confidence: 0,
+      latencyMs: 0,
+      citedIncidents: [],
+      fixesToAvoid: 0,
+      model: "",
+      judgeReason: "",
+      error: describeError(err),
+    };
+  }
+}
+
+/** Retain a resolved incident (the team's post-mortem) into a bank. Returns async operation ids, if any. */
+export async function retainResolution(
+  incident: Incident,
+  bankId: string,
+  source: "history" | "eval",
+  opts: { async?: boolean } = {},
+): Promise<string[]> {
+  return retainItems(
+    [
+      {
+        content: renderIncidentDocument(incident),
+        timestamp: incident.startedAt,
+        context: `PayNest production incident post-mortem for ${incident.service} (${incident.id})`,
+        document_id: incident.id,
+        tags: incidentTags(incident, source),
+        metadata: { incident_id: incident.id, service: incident.service, family: incident.family, resolved_by: incident.resolvedBy },
+      },
+    ],
+    { bankId, async: opts.async ?? true },
+  );
+}
+
+/** Total memories (world + experience + observation) currently in a bank. */
+export async function countMemories(bankId: string): Promise<number> {
+  let total = 0;
+  for (const type of ["world", "experience", "observation"]) {
+    total += (await hindsight().listMemories(bankId, { type, limit: 1 })).total;
+  }
+  return total;
+}
+
+// ------------------------------------------------------------------ cold start
+
+export interface ColdRow extends EvalRow {
+  phase: "history" | "eval";
+  /** Memories in the bank when this incident was diagnosed (before its own resolution was retained). */
+  memoriesBefore: number;
+  /** Rolling accuracy over the last `window` incidents, including this one. */
+  rolling: { off: number; on: number };
+}
+
+export interface ColdResults {
+  generatedAt: string;
+  bankId: string;
+  judgeModel: string;
+  n: number;
+  window: number;
+  runtimeMinutes: number;
+  summary: {
+    off: { accuracy: number };
+    on: { accuracy: number };
+    /** Accuracy per consecutive block of `window` incidents. */
+    blocks: { from: number; to: number; off: number; on: number; memoriesAtStart: number }[];
+  };
+  rows: ColdRow[];
+}
+
+export function rollingAccuracy(rows: EvalRow[], window: number, k: "off" | "on"): number {
+  const slice = rows.slice(-window);
+  return slice.length ? slice.filter((r) => r[k].correct).length / slice.length : 0;
+}
+
+export function summariseCold(rows: ColdRow[], window: number): ColdResults["summary"] {
+  const acc = (rs: ColdRow[], k: "off" | "on") => (rs.length ? rs.filter((r) => r[k].correct).length / rs.length : 0);
+  const blocks: ColdResults["summary"]["blocks"] = [];
+  for (let i = 0; i < rows.length; i += window) {
+    const b = rows.slice(i, i + window);
+    blocks.push({ from: i + 1, to: i + b.length, off: acc(b, "off"), on: acc(b, "on"), memoriesAtStart: b[0]!.memoriesBefore });
+  }
+  return { off: { accuracy: acc(rows, "off") }, on: { accuracy: acc(rows, "on") }, blocks };
 }

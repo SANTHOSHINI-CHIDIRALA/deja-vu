@@ -1,0 +1,3619 @@
+{
+  "generatedAt": "2026-09-29T10:12:50.163Z",
+  "bankId": "paynest-sre-cold",
+  "judgeModel": "openai/gpt-oss-120b",
+  "n": 60,
+  "window": 10,
+  "runtimeMinutes": 18.445866666666667,
+  "summary": {
+    "off": {
+      "accuracy": 0.95
+    },
+    "on": {
+      "accuracy": 1
+    },
+    "blocks": [
+      {
+        "from": 1,
+        "to": 10,
+        "off": 1,
+        "on": 1,
+        "memoriesAtStart": 0
+      },
+      {
+        "from": 11,
+        "to": 20,
+        "off": 1,
+        "on": 1,
+        "memoriesAtStart": 113
+      },
+      {
+        "from": 21,
+        "to": 30,
+        "off": 1,
+        "on": 1,
+        "memoriesAtStart": 233
+      },
+      {
+        "from": 31,
+        "to": 40,
+        "off": 1,
+        "on": 1,
+        "memoriesAtStart": 341
+      },
+      {
+        "from": 41,
+        "to": 50,
+        "off": 0.8,
+        "on": 1,
+        "memoriesAtStart": 457
+      },
+      {
+        "from": 51,
+        "to": 60,
+        "off": 0.9,
+        "on": 1,
+        "memoriesAtStart": 570
+      }
+    ]
+  },
+  "rows": [
+    {
+      "index": 1,
+      "id": "INC-2204",
+      "title": "upi-gateway latency spike — Redis eviction storm during salary day",
+      "service": "upi-gateway",
+      "startedAt": "2026-03-01T07:23:00.000Z",
+      "family": "redis-eviction-storm",
+      "phase": "history",
+      "memoriesBefore": 0,
+      "off": {
+        "topTitle": "Redis memory exhaustion causing eviction storm",
+        "topRootCause": "maxmemory limit reached on redis-cache-0 leading to aggressive allkeys‑LRU evictions, output‑buffer overflows and client timeouts",
+        "judgedFamilies": [
+          "redis-eviction-storm"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 1871,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 matches the ground truth as it attributes the issue to Redis memory exhaustion triggering an eviction storm."
+      },
+      "on": {
+        "topTitle": "VPA Registry Cache Eviction Storm",
+        "topRootCause": "High influx of VPA resolution requests exceeding maxmemory allocation, triggering LRU evictions.",
+        "judgedFamilies": [
+          "redis-eviction-storm",
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 18064,
+        "citedIncidents": [
+          "INC-2204"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the Redis eviction storm that caused the incident, matching the ground‑truth cause."
+      },
+      "cumulative": {
+        "off": 1,
+        "on": 1,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 2,
+      "id": "INC-2210",
+      "title": "auth-svc latency spike — Redis eviction storm during Holi sale",
+      "service": "auth-svc",
+      "startedAt": "2026-03-04T06:34:00.000Z",
+      "family": "redis-eviction-storm",
+      "phase": "history",
+      "memoriesBefore": 6,
+      "off": {
+        "topTitle": "Redis eviction storm caused by oversized cache entries",
+        "topRootCause": "The new deploy caches full objects (~40 KB) instead of IDs, rapidly exhausting Redis maxmemory and triggering allkeys‑lru evictions, client output buffer overflows and timeouts.",
+        "judgedFamilies": [
+          "redis-eviction-storm",
+          "unknown",
+          "redis-eviction-storm"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 2023,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the oversized cache entries triggering a Redis eviction storm, matching the ground truth."
+      },
+      "on": {
+        "topTitle": "Redis Cache Capacity Exhaustion (Object Size Increase)",
+        "topRootCause": "Recent deploy (commit 85d7c28) changed cache schema to store full objects, exceeding memory limits.",
+        "judgedFamilies": [
+          "redis-eviction-storm",
+          "unknown",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 9522,
+        "citedIncidents": [
+          "INC-2204",
+          "INC-2210"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the cache capacity exhaustion that caused the eviction storm, matching the ground truth."
+      },
+      "cumulative": {
+        "off": 2,
+        "on": 2,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 3,
+      "id": "INC-2212",
+      "title": "notif-worker consumer lag — payment SMS delayed",
+      "service": "notif-worker",
+      "startedAt": "2026-03-07T05:48:00.000Z",
+      "family": "kafka-consumer-lag",
+      "phase": "history",
+      "memoriesBefore": 15,
+      "off": {
+        "topTitle": "Kafka consumer group rebalance storm after rolling upgrade",
+        "topRootCause": "The rolling upgrade restarted the group coordinator, causing an eager assignor rebalance. Workers repeatedly left and rejoined the group, exceeding max.poll.interval.ms and stalling consumption, which built up the lag.",
+        "judgedFamilies": [
+          "kafka-consumer-lag",
+          "kafka-consumer-lag",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 3829,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 describes the same Kafka rebalance‑induced consumer lag as the ground truth, just with different wording."
+      },
+      "on": {
+        "topTitle": "Consumer Processing Time Exceeding Poll Interval",
+        "topRootCause": "The processing loop for a batch of messages is taking longer than the 5-minute max.poll.interval.ms timeout.",
+        "judgedFamilies": [
+          "kafka-consumer-lag",
+          "kafka-consumer-lag",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 16932,
+        "citedIncidents": [
+          "INC-2204",
+          "INC-2210",
+          "INC-2212"
+        ],
+        "fixesToAvoid": 1,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 cites poll‑interval timeout, which like the ground truth stems from Kafka consumer lag, though the ground truth attributes it to a rebalance caused by the upgrade."
+      },
+      "cumulative": {
+        "off": 3,
+        "on": 3,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 4,
+      "id": "INC-2216",
+      "title": "upi-gateway auth failures — rotated secret not picked up",
+      "service": "upi-gateway",
+      "startedAt": "2026-03-31T15:33:00.000Z",
+      "family": "tls-secret-expiry",
+      "phase": "history",
+      "memoriesBefore": 27,
+      "off": {
+        "topTitle": "Expired mTLS client certificate for NPCI",
+        "topRootCause": "The client certificate rotated at 04:44 IST expired at midnight, so upi-gateway presents an invalid cert to NPCI, leading to 401/403 responses and probe failures.",
+        "judgedFamilies": [
+          "tls-secret-expiry"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.93,
+        "latencyMs": 2049,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 exactly matches the ground truth by identifying the expired mTLS client certificate causing the failure."
+      },
+      "on": {
+        "topTitle": "Expired mTLS Certificate",
+        "topRootCause": "The certificate used for the NPCI mTLS handshake has expired, likely due to a failed propagation or mounting of the new certificate.",
+        "judgedFamilies": [
+          "tls-secret-expiry",
+          "tls-secret-expiry"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 14549,
+        "citedIncidents": [
+          "INC-2204",
+          "INC-2210",
+          "INC-2212",
+          "INC-2216"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 directly describes the expired mTLS certificate, matching the ground truth cause."
+      },
+      "cumulative": {
+        "off": 4,
+        "on": 4,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 5,
+      "id": "INC-2219",
+      "title": "notif-worker consumer lag — payment SMS delayed",
+      "service": "notif-worker",
+      "startedAt": "2026-04-07T18:08:00.000Z",
+      "family": "kafka-consumer-lag",
+      "phase": "history",
+      "memoriesBefore": 42,
+      "off": {
+        "topTitle": "Kafka consumer lag due to rebalance and poll timeout",
+        "topRootCause": "The rolling upgrade restarted the group coordinator, causing a rebalance. Consumers failed to rejoin promptly, exceeded max.poll.interval.ms, and stopped committing offsets, leading to a stall and huge lag.",
+        "judgedFamilies": [
+          "kafka-consumer-lag",
+          "kafka-consumer-lag"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 1882,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 matches the ground truth by describing the coordinator restart‑triggered rebalance and poll timeout that caused the consumer lag."
+      },
+      "on": {
+        "topTitle": "Eager Rebalance Partition Loop",
+        "topRootCause": "The use of the eager assignor during a Kafka rolling upgrade caused frequent partition revocations and rebalances, leading to max.poll.interval.ms exceedance.",
+        "judgedFamilies": [
+          "kafka-consumer-lag",
+          "kafka-consumer-lag",
+          "kafka-consumer-lag"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 11735,
+        "citedIncidents": [
+          "INC-2210",
+          "INC-2212",
+          "INC-2219"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 matches the ground truth by pinpointing the eager assignor‑driven rebalance during the upgrade as the trigger for the consumer lag."
+      },
+      "cumulative": {
+        "off": 5,
+        "on": 5,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 6,
+      "id": "INC-2223",
+      "title": "ledger-svc 5xx — DB connection pool exhausted",
+      "service": "ledger-svc",
+      "startedAt": "2026-04-17T05:12:00.000Z",
+      "family": "db-pool-exhaustion",
+      "phase": "history",
+      "memoriesBefore": 51,
+      "off": {
+        "topTitle": "DB connection pool exhaustion after config change",
+        "topRootCause": "The deploy raised Hikari maximumPoolSize to 60 per pod and added 9 replicas, multiplying the total desired connections to ~540, far exceeding the PostgreSQL max_connections (800) and pgBouncer limit, leading to pool timeouts and connection refusals.",
+        "judgedFamilies": [
+          "db-pool-exhaustion",
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 2832,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the Hikari pool size increase and replica scaling that exhausted the DB connection pool, matching the ground truth."
+      },
+      "on": {
+        "topTitle": "Database Connection Pool Saturation",
+        "topRootCause": "The increase of maximumPoolSize from 20 to 60 across 9 replicas exceeds the Postgres max_connections limit.",
+        "judgedFamilies": [
+          "db-pool-exhaustion",
+          "db-pool-exhaustion",
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 16364,
+        "citedIncidents": [
+          "INC-2204",
+          "INC-2210",
+          "INC-2212",
+          "INC-2216",
+          "INC-2223"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the same DB connection pool exhaustion mechanism as the ground truth."
+      },
+      "cumulative": {
+        "off": 6,
+        "on": 6,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 7,
+      "id": "INC-2226",
+      "title": "upi-gateway success rate drop — Kotak timeouts at NPCI",
+      "service": "upi-gateway",
+      "startedAt": "2026-04-28T18:18:00.000Z",
+      "family": "npci-bank-timeout",
+      "phase": "history",
+      "memoriesBefore": 63,
+      "off": {
+        "topTitle": "NPCI/Kotak bank timeout surge",
+        "topRootCause": "The Kotak bank endpoint is not responding within the 30‑second RPC timeout, causing the NPCI client thread‑pool to saturate, request queue buildup, and circuit‑breaker to trip, leading to high transaction timeouts.",
+        "judgedFamilies": [
+          "npci-bank-timeout"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.88,
+        "latencyMs": 2072,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 matches the ground truth description of NPCI bank timeouts causing thread‑pool saturation."
+      },
+      "on": {
+        "topTitle": "npci-bank-timeout",
+        "topRootCause": "Kotak bank is failing to respond within the 30s window, saturating the upi-gateway pool.",
+        "judgedFamilies": [
+          "npci-bank-timeout",
+          "db-pool-exhaustion",
+          "redis-eviction-storm"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 10264,
+        "citedIncidents": [
+          "INC-2204",
+          "INC-2210",
+          "INC-2212",
+          "INC-2216",
+          "INC-2219",
+          "INC-2226"
+        ],
+        "fixesToAvoid": 4,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the NPCI bank timeout causing pool saturation, matching the ground truth."
+      },
+      "cumulative": {
+        "off": 7,
+        "on": 7,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 8,
+      "id": "INC-2232",
+      "title": "payments-api 5xx — DB connection pool exhausted",
+      "service": "payments-api",
+      "startedAt": "2026-05-01T14:15:00.000Z",
+      "family": "db-pool-exhaustion",
+      "phase": "history",
+      "memoriesBefore": 74,
+      "off": {
+        "topTitle": "Database connection pool exhaustion after HPA scale‑up",
+        "topRootCause": "Increasing maxReplicas to 30 doubled the number of pods, each still using a pool_size of 20, pushing total potential connections (~600) far above Postgres' max_connections (500). This caused connection timeouts, pgbouncer rejections and upstream 5xx responses.",
+        "judgedFamilies": [
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 1985,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the DB connection pool exhaustion caused by scaling pods, matching the ground‑truth family."
+      },
+      "on": {
+        "topTitle": "Database Connection Pool Exhaustion",
+        "topRootCause": "Total connection count from pods exceeds Postgres max_connections limit.",
+        "judgedFamilies": [
+          "db-pool-exhaustion",
+          "db-pool-exhaustion",
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 12426,
+        "citedIncidents": [
+          "INC-2223",
+          "INC-2232"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 directly describes the same connection pool exhaustion mechanism as the ground truth."
+      },
+      "cumulative": {
+        "off": 8,
+        "on": 8,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 9,
+      "id": "INC-2237",
+      "title": "payments-api 5xx — DB connection pool exhausted",
+      "service": "payments-api",
+      "startedAt": "2026-05-05T06:17:00.000Z",
+      "family": "db-pool-exhaustion",
+      "phase": "history",
+      "memoriesBefore": 89,
+      "off": {
+        "topTitle": "DB connection pool exhaustion after scaling workers",
+        "topRootCause": "Increasing Gunicorn workers from 4 to 8 doubled the number of concurrent DB connections per pod, exceeding the Postgres max_connections limit and exhausting the SQLAlchemy pool, leading to timeouts and 5xx responses.",
+        "judgedFamilies": [
+          "db-pool-exhaustion",
+          "db-pool-exhaustion",
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 2100,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the DB connection pool exhaustion caused by scaling Gunicorn workers, matching the ground truth."
+      },
+      "on": {
+        "topTitle": "Database Connection Pool Exhaustion",
+        "topRootCause": "Increased gunicorn worker count leading to connection saturation.",
+        "judgedFamilies": [
+          "db-pool-exhaustion",
+          "db-pool-exhaustion",
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 13356,
+        "citedIncidents": [
+          "INC-2223",
+          "INC-2232",
+          "INC-2237"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the increased gunicorn workers causing DB pool exhaustion, matching the ground truth."
+      },
+      "cumulative": {
+        "off": 9,
+        "on": 9,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 10,
+      "id": "INC-2240",
+      "title": "notif-worker consumer lag — payment SMS delayed",
+      "service": "notif-worker",
+      "startedAt": "2026-05-09T21:16:00.000Z",
+      "family": "kafka-consumer-lag",
+      "phase": "history",
+      "memoriesBefore": 102,
+      "off": {
+        "topTitle": "Consumer group rebalance storm after over‑scaling",
+        "topRootCause": "Scaling the worker to more instances than available partitions caused each instance to compete for the same partitions, triggering continuous rebalances, poll‑interval expirations and commit failures, leading to massive lag.",
+        "judgedFamilies": [
+          "kafka-consumer-lag",
+          "kafka-consumer-lag",
+          "kafka-consumer-lag"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 2947,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 matches the ground truth by attributing the lag to a rebalance storm caused by scaling beyond the number of partitions."
+      },
+      "on": {
+        "topTitle": "Kafka Consumer Rebalance Loop",
+        "topRootCause": "Scaling replicas to 32 while only having 24 partitions, combined with exceeding max.poll.interval.ms due to long-running batch processing.",
+        "judgedFamilies": [
+          "kafka-consumer-lag",
+          "unknown",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.95,
+        "latencyMs": 12041,
+        "citedIncidents": [
+          "INC-2212",
+          "INC-2219",
+          "INC-2240"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the Kafka consumer rebalance loop causing lag, matching the ground truth."
+      },
+      "cumulative": {
+        "off": 10,
+        "on": 10,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 11,
+      "id": "INC-2244",
+      "title": "auth-svc auth failures — rotated secret not picked up",
+      "service": "auth-svc",
+      "startedAt": "2026-05-11T22:49:00.000Z",
+      "family": "tls-secret-expiry",
+      "phase": "history",
+      "memoriesBefore": 113,
+      "off": {
+        "topTitle": "Expired TLS cert and DB credentials after secret rotation",
+        "topRootCause": "Vault rotated auth‑svc PostgreSQL credentials and TLS certs at 05:33 IST on 11 May, but existing pods retained the old, now‑expired lease, leading to DB authentication failures and TLS handshake errors.",
+        "judgedFamilies": [
+          "tls-secret-expiry",
+          "bad-config-push"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 2443,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the expired TLS cert and secret rotation issue, matching the ground‑truth tls-secret-expiry cause."
+      },
+      "on": {
+        "topTitle": "tls-secret-expiry",
+        "topRootCause": "Application pods are using credentials that were valid before the rotation but have since expired.",
+        "judgedFamilies": [
+          "tls-secret-expiry",
+          "bad-config-push",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 11110,
+        "citedIncidents": [
+          "INC-2210",
+          "INC-2216",
+          "INC-2223",
+          "INC-2232",
+          "INC-2237",
+          "INC-2244"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the expired credentials after rotation, matching the tls-secret-expiry ground truth."
+      },
+      "cumulative": {
+        "off": 11,
+        "on": 11,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 12,
+      "id": "INC-2246",
+      "title": "notif-worker consumer lag — payment SMS delayed",
+      "service": "notif-worker",
+      "startedAt": "2026-05-15T21:09:00.000Z",
+      "family": "kafka-consumer-lag",
+      "phase": "history",
+      "memoriesBefore": 128,
+      "off": {
+        "topTitle": "Increased max.poll.records causing poll timeout and rebalance storms",
+        "topRootCause": "Raising max.poll.records to 5000 made each poll take longer than max.poll.interval.ms (300s) due to synchronous SMS calls, triggering CommitFailedException and repeated rebalances, which halted consumption.",
+        "judgedFamilies": [
+          "kafka-consumer-lag",
+          "kafka-consumer-lag",
+          "kafka-consumer-lag"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 2306,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the max.poll.records increase leading to poll timeout and rebalance storms, matching the ground‑truth cause."
+      },
+      "on": {
+        "topTitle": "Consumer Group Rebalance Storm",
+        "topRootCause": "Increased max.poll.records to 5000 caused processing time to exceed max.poll.interval.ms, triggering rebalance loops.",
+        "judgedFamilies": [
+          "kafka-consumer-lag",
+          "kafka-consumer-lag"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.95,
+        "latencyMs": 12134,
+        "citedIncidents": [
+          "INC-2212",
+          "INC-2219",
+          "INC-2240"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the rebalance loop caused by the max.poll.records increase, matching the ground‑truth cause."
+      },
+      "cumulative": {
+        "off": 12,
+        "on": 12,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 13,
+      "id": "INC-2251",
+      "title": "notif-worker consumer lag — payment SMS delayed",
+      "service": "notif-worker",
+      "startedAt": "2026-05-20T20:59:00.000Z",
+      "family": "kafka-consumer-lag",
+      "phase": "history",
+      "memoriesBefore": 141,
+      "off": {
+        "topTitle": "Kafka consumer rebalance storm after partition increase",
+        "topRootCause": "Increasing partitions from 24 to 48 caused a full rebalance; workers failed to rejoin promptly, exceeding max.poll.interval.ms and repeatedly committing failures, leading to a stalled group and massive lag.",
+        "judgedFamilies": [
+          "kafka-consumer-lag",
+          "kafka-consumer-lag",
+          "kafka-consumer-lag"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 3268,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 matches the ground truth by describing a rebalance storm caused by the partition increase, leading to max.poll.interval breaches and growing lag."
+      },
+      "on": {
+        "topTitle": "max.poll.interval.ms breach due to partition count change",
+        "topRootCause": "Increase in partitions from 24 to 48 caused consumers to exceed the max.poll.interval.ms limit during batch processing.",
+        "judgedFamilies": [
+          "kafka-consumer-lag",
+          "kafka-consumer-lag",
+          "kafka-consumer-lag"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 12967,
+        "citedIncidents": [
+          "INC-2212",
+          "INC-2219",
+          "INC-2240",
+          "INC-2246",
+          "INC-2251"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 matches the ground truth by attributing the lag to a max.poll_interval breach caused by the partition count increase."
+      },
+      "cumulative": {
+        "off": 13,
+        "on": 13,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 14,
+      "id": "INC-2254",
+      "title": "upi-gateway latency spike — Redis eviction storm during salary day",
+      "service": "upi-gateway",
+      "startedAt": "2026-05-31T19:05:00.000Z",
+      "family": "redis-eviction-storm",
+      "phase": "history",
+      "memoriesBefore": 152,
+      "off": {
+        "topTitle": "TTL reduction caused cache stampede and memory pressure",
+        "topRootCause": "The deploy set a flat 300‑second TTL on all vpa:resolve:* keys, dramatically increasing key turnover and filling the cache faster than Redis can evict, pushing memory to 96% and triggering evictions and OOM errors.",
+        "judgedFamilies": [
+          "redis-eviction-storm",
+          "redis-eviction-storm",
+          "redis-eviction-storm"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 1976,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly cites the TTL reduction as the trigger, matching the ground‑truth cause of the Redis eviction storm."
+      },
+      "on": {
+        "topTitle": "TTL Synchronization Storm",
+        "topRootCause": "Commit eb88985 introduced a flat 300s TTL causing keys to expire simultaneously, triggering a database stampede.",
+        "judgedFamilies": [
+          "redis-eviction-storm",
+          "redis-eviction-storm",
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 12762,
+        "citedIncidents": [
+          "INC-2204",
+          "INC-2210",
+          "INC-2223",
+          "INC-2226",
+          "INC-2254"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the TTL‑sync eviction storm, matching the ground‑truth cause."
+      },
+      "cumulative": {
+        "off": 14,
+        "on": 14,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 15,
+      "id": "INC-2260",
+      "title": "payments-api 5xx after config push",
+      "service": "payments-api",
+      "startedAt": "2026-06-07T07:39:00.000Z",
+      "family": "bad-config-push",
+      "phase": "history",
+      "memoriesBefore": 165,
+      "off": {
+        "topTitle": "Rate‑limit misconfiguration throttles collect requests",
+        "topRootCause": "ConfigMap push set ratelimit.max_rps=50 (typo) causing Envoy to return 429 Too Many Requests, which the alert treats as 5xx.",
+        "judgedFamilies": [
+          "bad-config-push"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.93,
+        "latencyMs": 2197,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the mis‑configured rate‑limit ConfigMap, matching the ground‑truth bad‑config‑push cause."
+      },
+      "on": {
+        "topTitle": "Incorrect Rate Limit Configuration",
+        "topRootCause": "Typo in ConfigMap ratelimit.max_rps value set to 50 instead of 5000.",
+        "judgedFamilies": [
+          "bad-config-push",
+          "unknown",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.95,
+        "latencyMs": 11434,
+        "citedIncidents": [
+          "INC-2223",
+          "INC-2232",
+          "INC-2237",
+          "INC-2260"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the mis‑typed ConfigMap rate‑limit, matching the ground‑truth bad‑config‑push cause."
+      },
+      "cumulative": {
+        "off": 15,
+        "on": 15,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 16,
+      "id": "INC-2263",
+      "title": "auth-svc auth failures — expired TLS certificate",
+      "service": "auth-svc",
+      "startedAt": "2026-06-08T21:17:00.000Z",
+      "family": "tls-secret-expiry",
+      "phase": "history",
+      "memoriesBefore": 176,
+      "off": {
+        "topTitle": "TLS certificate expired for auth.paynest.in",
+        "topRootCause": "The TLS certificate managed by cert‑manager expired at midnight UTC on 2026‑06‑08, causing TLS handshakes to fail, readiness probes to error, and the auth service to reject requests with 401/403.",
+        "judgedFamilies": [
+          "tls-secret-expiry"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.94,
+        "latencyMs": 1968,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the TLS certificate expiration that caused the auth service failure, matching the ground‑truth tls-secret-expiry root cause."
+      },
+      "on": {
+        "topTitle": "Stale TLS Secret in Pods",
+        "topRootCause": "Automated renewal process failed to update the Kubernetes Secret mounted by the pods.",
+        "judgedFamilies": [
+          "tls-secret-expiry",
+          "tls-secret-expiry",
+          "bad-config-push"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 11227,
+        "citedIncidents": [
+          "INC-2216",
+          "INC-2244",
+          "INC-2263"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 matches the ground truth as it describes a stale TLS secret caused by renewal failure, which is the same TLS secret expiry mechanism."
+      },
+      "cumulative": {
+        "off": 16,
+        "on": 16,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 17,
+      "id": "INC-2265",
+      "title": "payments-api 5xx — DB connection pool exhausted",
+      "service": "payments-api",
+      "startedAt": "2026-06-18T13:58:00.000Z",
+      "family": "db-pool-exhaustion",
+      "phase": "history",
+      "memoriesBefore": 189,
+      "off": {
+        "topTitle": "DB connection pool exhaustion due to background thread pool",
+        "topRootCause": "The new settlement‑report thread pool (8 threads) consumes DB connections from the same SQLAlchemy pool (size 20 + 10 overflow). Combined with normal request traffic it exceeds the pool limit, causing timeouts and upstream 5xx errors.",
+        "judgedFamilies": [
+          "db-pool-exhaustion",
+          "db-pool-exhaustion",
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 2790,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the DB connection pool exhaustion caused by the new background thread pool, matching the ground‑truth cause."
+      },
+      "on": {
+        "topTitle": "DB Pool Exhaustion via Added Threads",
+        "topRootCause": "Background thread pool sharing the request DB pool pushed demand beyond Postgres limits.",
+        "judgedFamilies": [
+          "db-pool-exhaustion",
+          "db-pool-exhaustion",
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 10182,
+        "citedIncidents": [
+          "INC-2223",
+          "INC-2232",
+          "INC-2237",
+          "INC-2260",
+          "INC-2265"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the DB pool exhaustion caused by the added background threads, matching the ground‑truth cause."
+      },
+      "cumulative": {
+        "off": 17,
+        "on": 17,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 18,
+      "id": "INC-2270",
+      "title": "payments-api 5xx after config push",
+      "service": "payments-api",
+      "startedAt": "2026-06-21T06:02:00.000Z",
+      "family": "bad-config-push",
+      "phase": "history",
+      "memoriesBefore": 202,
+      "off": {
+        "topTitle": "Rate‑limit config typo throttling traffic",
+        "topRootCause": "ConfigMap push set ratelimit.max_rps=50 (typo) causing Envoy/ratelimit to return 429 Too Many Requests, which the API surfaces as 500 errors, inflating the 5xx ratio.",
+        "judgedFamilies": [
+          "bad-config-push"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.93,
+        "latencyMs": 1716,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the mis‑configured rate‑limit ConfigMap, matching the ground‑truth bad‑config‑push cause."
+      },
+      "on": {
+        "topTitle": "ConfigMap Rate Limit Typo",
+        "topRootCause": "The ratelimit.max_rps value in the payments-api-config ConfigMap was incorrectly set to 50 instead of 5000.",
+        "judgedFamilies": [
+          "bad-config-push"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 1,
+        "latencyMs": 9938,
+        "citedIncidents": [
+          "INC-2260",
+          "INC-2270"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 exactly matches the ground truth description of the bad ConfigMap push causing the rate limit typo."
+      },
+      "cumulative": {
+        "off": 18,
+        "on": 18,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 19,
+      "id": "INC-2273",
+      "title": "upi-gateway success rate drop — Kotak timeouts at NPCI",
+      "service": "upi-gateway",
+      "startedAt": "2026-06-23T16:59:00.000Z",
+      "family": "npci-bank-timeout",
+      "phase": "history",
+      "memoriesBefore": 213,
+      "off": {
+        "topTitle": "Kotak bank NPCI endpoint timeout",
+        "topRootCause": "The NPCI client pool for Kotak reached its max connections (200/200) and queued requests (664/1000), causing request timeouts and triggering the circuit‑breaker. The downstream Kotak bank endpoint is not responding within the 30 s RPC timeout.",
+        "judgedFamilies": [
+          "npci-bank-timeout",
+          "bad-config-push",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.88,
+        "latencyMs": 2697,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 cites client‑pool saturation causing timeouts, which aligns with the npci-bank-timeout family, whereas the ground truth attributes the timeout to the external NPCI service."
+      },
+      "on": {
+        "topTitle": "Kotak NPCI Remitter-Bank Degradation",
+        "topRootCause": "External degradation of the Kotak remitter-bank switch at NPCI causing timeouts.",
+        "judgedFamilies": [
+          "npci-bank-timeout",
+          "unknown",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 13856,
+        "citedIncidents": [
+          "INC-2226",
+          "INC-2273"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the NPCI bank timeout issue, matching the ground truth."
+      },
+      "cumulative": {
+        "off": 19,
+        "on": 19,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 20,
+      "id": "INC-2275",
+      "title": "auth-svc auth failures — rotated secret not picked up",
+      "service": "auth-svc",
+      "startedAt": "2026-06-23T23:00:00.000Z",
+      "family": "tls-secret-expiry",
+      "phase": "history",
+      "memoriesBefore": 225,
+      "off": {
+        "topTitle": "Expired TLS cert and stale DB credentials after secret rotation",
+        "topRootCause": "Vault rotated auth‑svc Postgres credentials and TLS cert at 02:36 IST, but running pods retained the old lease, resulting in certificate validation errors and password authentication failures.",
+        "judgedFamilies": [
+          "tls-secret-expiry",
+          "bad-config-push",
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 2504,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 describes the same TLS secret expiry and stale credentials mechanism as the ground truth."
+      },
+      "on": {
+        "topTitle": "Stale Vault Credential Lease",
+        "topRootCause": "Vault rotated postgres credentials while pods retained expired leases.",
+        "judgedFamilies": [
+          "tls-secret-expiry",
+          "unknown",
+          "bad-config-push"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 11074,
+        "citedIncidents": [
+          "INC-2244",
+          "INC-2263",
+          "INC-2275"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 describes the same expired Vault credential lease mechanism as the ground truth, while the others describe different or vague issues."
+      },
+      "cumulative": {
+        "off": 20,
+        "on": 20,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 21,
+      "id": "INC-2281",
+      "title": "upi-gateway latency spike — Redis eviction storm during salary day",
+      "service": "upi-gateway",
+      "startedAt": "2026-07-01T04:58:00.000Z",
+      "family": "redis-eviction-storm",
+      "phase": "history",
+      "memoriesBefore": 233,
+      "off": {
+        "topTitle": "Redis eviction storm caused by oversized cache entries",
+        "topRootCause": "The new deployment caches full merchant/user objects (~40KB) instead of IDs, rapidly filling Redis memory and triggering allkeys‑lru evictions, leading to timeouts and OOM errors.",
+        "judgedFamilies": [
+          "redis-eviction-storm",
+          "redis-eviction-storm",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 6993,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the oversized cache entries causing a Redis eviction storm, matching the ground truth."
+      },
+      "on": {
+        "topTitle": "Cache Size Exhaustion",
+        "topRootCause": "Commit 415ee99 increased object size significantly, exhausting the 12GB Redis capacity and triggering constant evictions.",
+        "judgedFamilies": [
+          "redis-eviction-storm",
+          "redis-eviction-storm"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 12271,
+        "citedIncidents": [
+          "INC-2204",
+          "INC-2210",
+          "INC-2223",
+          "INC-2226",
+          "INC-2237",
+          "INC-2254",
+          "INC-2273",
+          "INC-2281"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly points to the commit that enlarged cached objects and exhausted Redis capacity, matching the ground‑truth cause."
+      },
+      "cumulative": {
+        "off": 21,
+        "on": 21,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 22,
+      "id": "INC-2285",
+      "title": "upi-gateway auth failures — rotated secret not picked up",
+      "service": "upi-gateway",
+      "startedAt": "2026-07-01T21:02:00.000Z",
+      "family": "tls-secret-expiry",
+      "phase": "history",
+      "memoriesBefore": 241,
+      "off": {
+        "topTitle": "Expired NPCI mTLS client certificate",
+        "topRootCause": "The certificate issued for the npci-client secret expired on 2026‑07‑01 00:00:00Z; the secret rotation pushed the expired cert to upi-gateway pods, causing TLS handshake failures and 401/403 responses.",
+        "judgedFamilies": [
+          "tls-secret-expiry"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.97,
+        "latencyMs": 3062,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 exactly matches the ground truth by identifying the expired mTLS client certificate causing TLS failures."
+      },
+      "on": {
+        "topTitle": "Expired NPCI mTLS certificate",
+        "topRootCause": "The mTLS certificate used for NPCI communication has expired and was not correctly updated during the recent secret rotation.",
+        "judgedFamilies": [
+          "tls-secret-expiry",
+          "tls-secret-expiry",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 9883,
+        "citedIncidents": [
+          "INC-2216"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 directly matches the ground truth by identifying the expired mTLS certificate as the cause."
+      },
+      "cumulative": {
+        "off": 22,
+        "on": 22,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 23,
+      "id": "INC-2288",
+      "title": "payments-api 5xx after feature flag push",
+      "service": "payments-api",
+      "startedAt": "2026-07-15T05:41:00.000Z",
+      "family": "bad-config-push",
+      "phase": "history",
+      "memoriesBefore": 250,
+      "off": {
+        "topTitle": "Bad feature flag rollout causing KeyError",
+        "topRootCause": "The 'enable_fee_engine_v2' flag was rolled out to 100% of traffic, exposing a bug in fee_engine_v2.compute() that expects a 'merchant_fee_bps' key which is not present in the current data structure.",
+        "judgedFamilies": [
+          "bad-config-push"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.98,
+        "latencyMs": 7445,
+        "citedIncidents": [],
+        "fixesToAvoid": 1,
+        "model": "qwen/qwen3.8-27b",
+        "judgeReason": "Hypothesis #1 correctly identifies the bad feature flag rollout as the cause, matching the ground truth."
+      },
+      "on": {
+        "topTitle": "bad-config-push",
+        "topRootCause": "The enable_fee_engine_v2 feature flag rollout triggered a KeyError: 'merchant_fee_bps' in fee_engine_v2.compute() due to missing parameters in payloads.",
+        "judgedFamilies": [
+          "bad-config-push",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.95,
+        "latencyMs": 12193,
+        "citedIncidents": [
+          "INC-2226",
+          "INC-2232",
+          "INC-2237",
+          "INC-2260",
+          "INC-2263",
+          "INC-2265",
+          "INC-2270",
+          "INC-2288"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the bad-config-push flag change that caused the KeyError, matching the ground truth."
+      },
+      "cumulative": {
+        "off": 23,
+        "on": 23,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 24,
+      "id": "INC-2292",
+      "title": "payments-api 5xx — DB connection pool exhausted",
+      "service": "payments-api",
+      "startedAt": "2026-07-22T18:11:00.000Z",
+      "family": "db-pool-exhaustion",
+      "phase": "history",
+      "memoriesBefore": 259,
+      "off": {
+        "topTitle": "DB connection pool exhaustion after new thread pool deployment",
+        "topRootCause": "The newly added settlement‑report background thread pool (8 threads) consumes additional DB connections from the same pool, exceeding the configured pool size (20+10 overflow) and hitting pgbouncer's max_client_conn limit, leading to timeouts and 5xx responses.",
+        "judgedFamilies": [
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 2754,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the DB connection pool exhaustion caused by the new settlement‑report thread pool, matching the ground truth."
+      },
+      "on": {
+        "topTitle": "Background Thread Pool Contention",
+        "topRootCause": "Background thread pool sharing the request database connection pool.",
+        "judgedFamilies": [
+          "db-pool-exhaustion",
+          "db-pool-exhaustion",
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 13861,
+        "citedIncidents": [
+          "INC-2223",
+          "INC-2232",
+          "INC-2237",
+          "INC-2265",
+          "INC-2292"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the background thread pool sharing the request DB pool as the cause, matching the ground‑truth mechanism."
+      },
+      "cumulative": {
+        "off": 24,
+        "on": 24,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 25,
+      "id": "INC-2298",
+      "title": "ledger-svc 5xx — DB connection pool exhausted",
+      "service": "ledger-svc",
+      "startedAt": "2026-07-23T20:19:00.000Z",
+      "family": "db-pool-exhaustion",
+      "phase": "history",
+      "memoriesBefore": 274,
+      "off": {
+        "topTitle": "DB connection pool exhaustion after scaling",
+        "topRootCause": "The deployment raised Hikari maximumPoolSize from 20 to 60 on each replica and added replicas, pushing total DB connections beyond Postgres' max_connections (600). pgBouncer and Postgres started rejecting new connections, causing timeouts and high write latency.",
+        "judgedFamilies": [
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 10065,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the DB connection pool exhaustion caused by increased Hikari pool size and replica count, matching the ground truth."
+      },
+      "on": {
+        "topTitle": "Database Connection Pool Exhaustion",
+        "topRootCause": "Increased maximumPoolSize and replica count exceeded PostgreSQL max_connections limit.",
+        "judgedFamilies": [
+          "db-pool-exhaustion",
+          "bad-config-push",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.95,
+        "latencyMs": 10406,
+        "citedIncidents": [
+          "INC-2223",
+          "INC-2232",
+          "INC-2265",
+          "INC-2298"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the DB connection pool exhaustion described in the ground truth, unlike the other hypotheses."
+      },
+      "cumulative": {
+        "off": 25,
+        "on": 25,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 26,
+      "id": "INC-2304",
+      "title": "payments-api 5xx — DB connection pool exhausted",
+      "service": "payments-api",
+      "startedAt": "2026-07-28T11:34:00.000Z",
+      "family": "db-pool-exhaustion",
+      "phase": "history",
+      "memoriesBefore": 284,
+      "off": {
+        "topTitle": "Database Connection Pool Exhaustion",
+        "topRootCause": "Each pod’s SQLAlchemy pool size is 20 with an overflow of 10, but the Postgres primary can only handle 500 connections. The HPA increase to 30 pods multiplied the demand, exceeding max_client_conn and causing connection timeouts and 503 responses.",
+        "judgedFamilies": [
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 27244,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-20b",
+        "judgeReason": "Hypothesis #1 correctly identifies the DB connection pool exhaustion described in the ground truth."
+      },
+      "on": {
+        "topTitle": "Scaling-Induced Pool Exhaustion",
+        "topRootCause": "The increase in maxReplicas to 30 with a pool_size of 20 per pod creates a theoretical demand of 600 connections, exceeding the Postgres limit of 500.",
+        "judgedFamilies": [
+          "db-pool-exhaustion",
+          "bad-config-push",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 14034,
+        "citedIncidents": [
+          "INC-2210",
+          "INC-2223",
+          "INC-2232",
+          "INC-2237",
+          "INC-2265",
+          "INC-2292",
+          "INC-2304"
+        ],
+        "fixesToAvoid": 4,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the mechanism of scaling-induced connection pool exhaustion, matching the ground truth, whereas the ground truth is specifically a resource limit violation due to scaling rather than a generic bad config push."
+      },
+      "cumulative": {
+        "off": 26,
+        "on": 26,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 27,
+      "id": "INC-2310",
+      "title": "upi-gateway success rate drop — BoB timeouts at NPCI",
+      "service": "upi-gateway",
+      "startedAt": "2026-07-29T12:28:00.000Z",
+      "family": "npci-bank-timeout",
+      "phase": "history",
+      "memoriesBefore": 295,
+      "off": {
+        "topTitle": "NPCI/BoB bank timeout overload",
+        "topRootCause": "The BoB PSP's NPCI endpoint is unresponsive, causing request timeouts and saturating the npci-client connection pool, which triggers the circuit‑breaker to disable further calls.",
+        "judgedFamilies": [
+          "npci-bank-timeout",
+          "unknown",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.86,
+        "latencyMs": 3609,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the NPCI bank timeout overload that matches the ground‑truth cause, while the others describe unrelated mechanisms."
+      },
+      "on": {
+        "topTitle": "BoB Remitter Bank Degradation",
+        "topRootCause": "External bank degradation at NPCI causing timeouts.",
+        "judgedFamilies": [
+          "npci-bank-timeout",
+          "npci-bank-timeout",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 11859,
+        "citedIncidents": [
+          "INC-2226",
+          "INC-2273",
+          "INC-2281",
+          "INC-2310"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the external bank degradation and NPCI timeout mechanism, matching the ground truth."
+      },
+      "cumulative": {
+        "off": 27,
+        "on": 27,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 28,
+      "id": "INC-2316",
+      "title": "payments-api latency spike — Redis eviction storm during salary day",
+      "service": "payments-api",
+      "startedAt": "2026-08-01T15:19:00.000Z",
+      "family": "redis-eviction-storm",
+      "phase": "history",
+      "memoriesBefore": 309,
+      "off": {
+        "topTitle": "TTL reduction caused cache‑stampede and memory exhaustion",
+        "topRootCause": "Deploy changed TTL for merchant:cfg:* keys from 1 h (with jitter) to a flat 300 s, dramatically increasing churn and forcing Redis LRU to evict millions of keys, filling memory and triggering timeouts.",
+        "judgedFamilies": [
+          "redis-eviction-storm",
+          "redis-eviction-storm",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 18039,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the TTL change that caused the eviction storm, matching the ground‑truth cause."
+      },
+      "on": {
+        "topTitle": "redis-eviction-storm",
+        "topRootCause": "Flat 300s TTL causes mass simultaneous expiration of merchant configuration keys, leading to a cache stampede and Redis OOM/Timeout errors.",
+        "judgedFamilies": [
+          "redis-eviction-storm",
+          "db-pool-exhaustion",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.95,
+        "latencyMs": 11427,
+        "citedIncidents": [
+          "INC-2204",
+          "INC-2210",
+          "INC-2254",
+          "INC-2281"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly matches the ground‑truth redis‑eviction‑storm cause, unlike the others."
+      },
+      "cumulative": {
+        "off": 28,
+        "on": 28,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 29,
+      "id": "INC-2320",
+      "title": "payments-api 5xx after config push",
+      "service": "payments-api",
+      "startedAt": "2026-08-08T08:17:00.000Z",
+      "family": "bad-config-push",
+      "phase": "history",
+      "memoriesBefore": 318,
+      "off": {
+        "topTitle": "Rate‑limit config typo throttling traffic",
+        "topRootCause": "ConfigMap push set ratelimit.max_rps=50 (typo) causing Envoy to return 429 Too Many Requests, which the API logs as 500 responses, inflating the 5xx ratio.",
+        "judgedFamilies": [
+          "bad-config-push"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.93,
+        "latencyMs": 2782,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 matches the ground truth as it describes the same ConfigMap typo causing a rate‑limit misconfiguration."
+      },
+      "on": {
+        "topTitle": "bad-config-push",
+        "topRootCause": "ConfigMap typo set ratelimit.max_rps=50 instead of 5000",
+        "judgedFamilies": [
+          "bad-config-push",
+          "db-pool-exhaustion",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.95,
+        "latencyMs": 9766,
+        "citedIncidents": [
+          "INC-2260",
+          "INC-2270",
+          "INC-2320"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the ConfigMap typo causing the rate limit issue, matching the ground truth."
+      },
+      "cumulative": {
+        "off": 29,
+        "on": 29,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 30,
+      "id": "INC-2325",
+      "title": "notif-worker consumer lag — payment SMS delayed",
+      "service": "notif-worker",
+      "startedAt": "2026-08-09T12:08:00.000Z",
+      "family": "kafka-consumer-lag",
+      "phase": "history",
+      "memoriesBefore": 330,
+      "off": {
+        "topTitle": "Kafka rolling upgrade caused consumer group rebalance and poll timeout",
+        "topRootCause": "The upgrade restarted kafka-2 (the group coordinator), forcing a rebalance. Consumers failed to rejoin promptly, exceeded max.poll.interval.ms, and could not commit offsets, leading to a backlog.",
+        "judgedFamilies": [
+          "kafka-consumer-lag",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 2031,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the Kafka rebalance and poll timeout mechanism, matching the ground truth, while hypothesis #2 describes an unrelated SMS latency issue."
+      },
+      "on": {
+        "topTitle": "Eager Assignor Rebalance Loop",
+        "topRootCause": "The eager assignor triggers stop-the-world rebalances during rolling upgrades, causing poll interval timeouts.",
+        "judgedFamilies": [
+          "kafka-consumer-lag",
+          "kafka-consumer-lag",
+          "kafka-consumer-lag"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 21801,
+        "citedIncidents": [
+          "INC-2212",
+          "INC-2219",
+          "INC-2240",
+          "INC-2246",
+          "INC-2251",
+          "INC-2325"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 matches the ground truth by attributing the lag to an eager assignor‑driven rebalance loop during the upgrade."
+      },
+      "cumulative": {
+        "off": 30,
+        "on": 30,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 31,
+      "id": "INC-2330",
+      "title": "upi-gateway success rate drop — BoB timeouts at NPCI",
+      "service": "upi-gateway",
+      "startedAt": "2026-08-09T20:35:00.000Z",
+      "family": "npci-bank-timeout",
+      "phase": "history",
+      "memoriesBefore": 341,
+      "off": {
+        "topTitle": "BoB PSP NPCI endpoint unresponsive causing timeouts",
+        "topRootCause": "The BoB bank's NPCI interface is either down or extremely slow, leading to request timeouts, thread‑pool saturation and circuit‑breaker tripping in the upi‑gateway service.",
+        "judgedFamilies": [
+          "npci-bank-timeout"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.88,
+        "latencyMs": 2801,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 matches the ground truth by describing BoB's NPCI endpoint timeout causing thread‑pool saturation, which is the npci-bank-timeout family."
+      },
+      "on": {
+        "topTitle": "BoB Bank Switch Degradation",
+        "topRootCause": "BoB bank switch degradation at NPCI causing 30s timeouts.",
+        "judgedFamilies": [
+          "npci-bank-timeout",
+          "unknown",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 13565,
+        "citedIncidents": [
+          "INC-2226",
+          "INC-2273",
+          "INC-2310",
+          "INC-2330"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the NPCI bank timeout issue, matching the ground truth, while the others do not describe that mechanism."
+      },
+      "cumulative": {
+        "off": 31,
+        "on": 31,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 32,
+      "id": "INC-2333",
+      "title": "payments-api 5xx after feature flag push",
+      "service": "payments-api",
+      "startedAt": "2026-08-17T11:33:00.000Z",
+      "family": "bad-config-push",
+      "phase": "history",
+      "memoriesBefore": 353,
+      "off": {
+        "topTitle": "Feature flag rollout introduced missing fee config",
+        "topRootCause": "The enable_fee_engine_v2 flag was promoted from 5% canary to 100% rollout, activating fee_engine_v2 code that expects the merchant_fee_bps attribute which is absent in the current merchant data, causing KeyError and 5xx responses.",
+        "judgedFamilies": [
+          "bad-config-push",
+          "unknown",
+          "redis-eviction-storm"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 2565,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the bad feature‑flag rollout, matching the ground truth, whereas #2 is too vague and #3 describes a Redis eviction issue."
+      },
+      "on": {
+        "topTitle": "Incorrect Feature Flag Rollout",
+        "topRootCause": "The enable_fee_engine_v2 feature flag was enabled, causing a KeyError in the fee engine logic.",
+        "judgedFamilies": [
+          "bad-config-push",
+          "bad-config-push",
+          "bad-config-push"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 12175,
+        "citedIncidents": [
+          "INC-2223",
+          "INC-2232",
+          "INC-2237",
+          "INC-2260",
+          "INC-2263",
+          "INC-2265",
+          "INC-2270",
+          "INC-2288",
+          "INC-2292",
+          "INC-2298",
+          "INC-2304",
+          "INC-2333"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the root cause as a feature‑flag rollout error, matching the ground‑truth bad‑config‑push mechanism."
+      },
+      "cumulative": {
+        "off": 32,
+        "on": 32,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 33,
+      "id": "INC-2336",
+      "title": "upi-gateway success rate drop — ICICI timeouts at NPCI",
+      "service": "upi-gateway",
+      "startedAt": "2026-08-20T05:36:00.000Z",
+      "family": "npci-bank-timeout",
+      "phase": "history",
+      "memoriesBefore": 366,
+      "off": {
+        "topTitle": "ICICI NPCI partner timeout causing high failure rate",
+        "topRootCause": "The NPCI client pool for ICICI reached its max active connections (200/200) and queued requests, leading to request timeouts and a circuit‑breaker trip that disabled the path, resulting in many transaction failures.",
+        "judgedFamilies": [
+          "npci-bank-timeout"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 1626,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 matches the ground truth by attributing the failure to NPCI timeouts affecting the client pool, which is the npci-bank-timeout family."
+      },
+      "on": {
+        "topTitle": "ICICI NPCI Remitter-Bank Degradation",
+        "topRootCause": "External degradation of the ICICI switch behind NPCI causing 30s timeouts and thread pool saturation.",
+        "judgedFamilies": [
+          "npci-bank-timeout",
+          "bad-config-push",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 13968,
+        "citedIncidents": [
+          "INC-2226",
+          "INC-2273",
+          "INC-2310",
+          "INC-2330",
+          "INC-2336"
+        ],
+        "fixesToAvoid": 4,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the NPCI timeout issue, matching the ground truth."
+      },
+      "cumulative": {
+        "off": 33,
+        "on": 33,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 34,
+      "id": "INC-2340",
+      "title": "upi-gateway success rate drop — BoB timeouts at NPCI",
+      "service": "upi-gateway",
+      "startedAt": "2026-08-20T20:33:00.000Z",
+      "family": "npci-bank-timeout",
+      "phase": "history",
+      "memoriesBefore": 374,
+      "off": {
+        "topTitle": "NPCI/Bank partner BoB timeout surge",
+        "topRootCause": "The BoB bank's NPCI endpoint is unresponsive, causing request timeouts, thread‑pool exhaustion in the npci-client, and circuit‑breaker activation.",
+        "judgedFamilies": [
+          "npci-bank-timeout",
+          "unknown",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 2001,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the NPCI/Bank timeout surge causing the issue, matching the ground truth, while #2 and #3 describe unrelated internal factors."
+      },
+      "on": {
+        "topTitle": "External Bank Degradation",
+        "topRootCause": "NPCI-side bank connectivity issues causing ReqPay timeouts and pool saturation.",
+        "judgedFamilies": [
+          "npci-bank-timeout",
+          "unknown",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.95,
+        "latencyMs": 11742,
+        "citedIncidents": [
+          "INC-2226",
+          "INC-2273",
+          "INC-2310",
+          "INC-2330",
+          "INC-2336",
+          "INC-2340"
+        ],
+        "fixesToAvoid": 4,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the NPCI bank timeout causing thread‑pool saturation, matching the ground truth."
+      },
+      "cumulative": {
+        "off": 34,
+        "on": 34,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 35,
+      "id": "INC-2345",
+      "title": "payments-api 5xx after config push",
+      "service": "payments-api",
+      "startedAt": "2026-08-23T21:28:00.000Z",
+      "family": "bad-config-push",
+      "phase": "history",
+      "memoriesBefore": 388,
+      "off": {
+        "topTitle": "Config typo causing ledger service DNS failure",
+        "topRootCause": "The ConfigMap change introduced a misspelled ledger_svc_url (\".cluster.loca\" instead of \".cluster.local\"), so the payments‑api cannot resolve the ledger service and returns 500 ConnectionError for collect requests.",
+        "judgedFamilies": [
+          "bad-config-push"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 3064,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the ConfigMap typo causing the ledger service DNS failure, matching the ground‑truth bad‑config‑push root cause."
+      },
+      "on": {
+        "topTitle": "bad-config-push",
+        "topRootCause": "The ledger_svc_url ConfigMap contains a typo (.cluster.loca instead of .cluster.local), causing DNS resolution failures for the ledger-svc host.",
+        "judgedFamilies": [
+          "bad-config-push",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.99,
+        "latencyMs": 11065,
+        "citedIncidents": [
+          "INC-2260",
+          "INC-2270",
+          "INC-2288",
+          "INC-2320",
+          "INC-2345"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the ConfigMap typo causing DNS failures, matching the ground truth."
+      },
+      "cumulative": {
+        "off": 35,
+        "on": 35,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 36,
+      "id": "INC-2347",
+      "title": "auth-svc latency spike — Redis eviction storm during salary day",
+      "service": "auth-svc",
+      "startedAt": "2026-09-01T15:18:00.000Z",
+      "family": "redis-eviction-storm",
+      "phase": "history",
+      "memoriesBefore": 400,
+      "off": {
+        "topTitle": "Redis eviction storm due to aggressive TTL",
+        "topRootCause": "The deployment reduced sess:* TTL to 300 s, causing a massive churn of session keys that fill the cache faster than it can evict, pushing memory to 97 % and triggering LRU evictions, OOM errors and client timeouts.",
+        "judgedFamilies": [
+          "redis-eviction-storm",
+          "unknown",
+          "redis-eviction-storm"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 5213,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the TTL‑induced eviction storm, matching the ground truth."
+      },
+      "on": {
+        "topTitle": "Flat TTL causing synchronized cache expiration stampede",
+        "topRootCause": "Lack of TTL jitter leads to simultaneous key expiration and cache stampede.",
+        "judgedFamilies": [
+          "redis-eviction-storm",
+          "redis-eviction-storm",
+          "redis-eviction-storm"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 12655,
+        "citedIncidents": [
+          "INC-2204",
+          "INC-2210",
+          "INC-2232",
+          "INC-2254",
+          "INC-2281",
+          "INC-2288",
+          "INC-2298",
+          "INC-2316",
+          "INC-2333",
+          "INC-2347"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the flat TTL causing synchronized expiration, matching the ground‑truth redis‑eviction‑storm cause."
+      },
+      "cumulative": {
+        "off": 36,
+        "on": 36,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 37,
+      "id": "INC-2351",
+      "title": "auth-svc auth failures — rotated secret not picked up",
+      "service": "auth-svc",
+      "startedAt": "2026-09-05T11:53:00.000Z",
+      "family": "tls-secret-expiry",
+      "phase": "history",
+      "memoriesBefore": 406,
+      "off": {
+        "topTitle": "JWT signing key rotation not propagated to auth‑svc",
+        "topRootCause": "Vault rotated the JWT signing key (new kid) but auth‑svc continued serving a stale JWKS cache, leading to invalid signature errors and TLS handshake failures.",
+        "judgedFamilies": [
+          "tls-secret-expiry"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 4719,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 describes the same secret rotation propagation failure as the ground truth, matching the tls-secret-expiry family."
+      },
+      "on": {
+        "topTitle": "Stale JWKS Cache",
+        "topRootCause": "Application is using a cached JWKS that does not contain the new key identifier after rotation.",
+        "judgedFamilies": [
+          "tls-secret-expiry",
+          "tls-secret-expiry"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 11147,
+        "citedIncidents": [
+          "INC-2210",
+          "INC-2244",
+          "INC-2263",
+          "INC-2275"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 describes a stale JWKS cache after key rotation, which matches the ground‑truth mechanism of TLS secret expiry causing auth failures."
+      },
+      "cumulative": {
+        "off": 37,
+        "on": 37,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 38,
+      "id": "INC-2357",
+      "title": "payments-api 5xx — DB connection pool exhausted",
+      "service": "payments-api",
+      "startedAt": "2026-09-12T05:33:00.000Z",
+      "family": "db-pool-exhaustion",
+      "phase": "history",
+      "memoriesBefore": 415,
+      "off": {
+        "topTitle": "DB connection pool exhaustion caused by new thread pool",
+        "topRootCause": "The newly introduced settlement‑report background thread pool (8 threads) consumes DB connections from the same SQLAlchemy pool (size 20 + 10 overflow). Combined with normal request traffic it exceeds the pool limit, causing timeouts and upstream 503s.",
+        "judgedFamilies": [
+          "db-pool-exhaustion",
+          "db-pool-exhaustion",
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 2651,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the DB connection pool exhaustion caused by the new thread pool, matching the ground truth mechanism."
+      },
+      "on": {
+        "topTitle": "Background Thread Pool Connection Contention",
+        "topRootCause": "Deployment of commit ee64378 added an 8-thread background pool to the shared request DB pool, exceeding max_connections.",
+        "judgedFamilies": [
+          "db-pool-exhaustion",
+          "db-pool-exhaustion",
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 14226,
+        "citedIncidents": [
+          "INC-2223",
+          "INC-2232",
+          "INC-2237",
+          "INC-2260",
+          "INC-2263",
+          "INC-2265",
+          "INC-2288",
+          "INC-2292",
+          "INC-2298",
+          "INC-2304",
+          "INC-2357"
+        ],
+        "fixesToAvoid": 4,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the background thread pool contending for the shared DB connections, matching the ground‑truth cause of DB pool exhaustion."
+      },
+      "cumulative": {
+        "off": 38,
+        "on": 38,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 39,
+      "id": "INC-2360",
+      "title": "payments-api latency spike — Redis eviction storm during Ganesh Chaturthi sale",
+      "service": "payments-api",
+      "startedAt": "2026-09-14T14:38:00.000Z",
+      "family": "redis-eviction-storm",
+      "phase": "history",
+      "memoriesBefore": 433,
+      "off": {
+        "topTitle": "Redis eviction storm from oversized cache entries",
+        "topRootCause": "The new deployment caches full merchant/user objects (~40 KB) instead of IDs, exhausting Redis maxmemory and triggering allkeys‑lru evictions, which cause timeouts and OOM errors for payments‑api.",
+        "judgedFamilies": [
+          "redis-eviction-storm",
+          "redis-eviction-storm",
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 4991,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the redis eviction storm caused by caching oversized objects, matching the ground‑truth cause."
+      },
+      "on": {
+        "topTitle": "Redis Cache Object Size Explosion",
+        "topRootCause": "Caching large 40KB objects instead of IDs leads to rapid memory exhaustion and eviction storms.",
+        "judgedFamilies": [
+          "redis-eviction-storm",
+          "redis-eviction-storm",
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 14953,
+        "citedIncidents": [
+          "INC-2204",
+          "INC-2210",
+          "INC-2281",
+          "INC-2316",
+          "INC-2347",
+          "INC-2360"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the Redis eviction storm caused by oversized cached objects, matching the ground truth."
+      },
+      "cumulative": {
+        "off": 39,
+        "on": 39,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 40,
+      "id": "INC-2362",
+      "title": "upi-gateway success rate drop — SBI timeouts at NPCI",
+      "service": "upi-gateway",
+      "startedAt": "2026-09-22T17:57:00.000Z",
+      "family": "npci-bank-timeout",
+      "phase": "history",
+      "memoriesBefore": 447,
+      "off": {
+        "topTitle": "SBI bank endpoint timeout (NPCI) causing request failures",
+        "topRootCause": "The SBI bank's NPCI endpoint is unresponsive or slow, leading to request timeouts, thread‑pool saturation in the npci-client, and circuit‑breaker tripping.",
+        "judgedFamilies": [
+          "npci-bank-timeout"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 2144,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the NPCI timeout on SBI causing thread‑pool saturation, matching the ground‑truth cause."
+      },
+      "on": {
+        "topTitle": "External Bank Degradation (SBI)",
+        "topRootCause": "SBI-specific remitter-bank switch degradation at NPCI causing 30s timeouts and thread pool saturation.",
+        "judgedFamilies": [
+          "npci-bank-timeout",
+          "unknown",
+          "npci-bank-timeout"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 12355,
+        "citedIncidents": [
+          "INC-2226",
+          "INC-2273",
+          "INC-2330",
+          "INC-2336",
+          "INC-2340",
+          "INC-2362"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the SBI‑specific timeout and thread‑pool saturation, matching the ground‑truth npci-bank-timeout cause."
+      },
+      "cumulative": {
+        "off": 40,
+        "on": 40,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 41,
+      "id": "INC-2367",
+      "title": "auth-svc login latency spike at salary-day midnight",
+      "service": "auth-svc",
+      "startedAt": "2026-09-30T19:04:00.000Z",
+      "family": "redis-eviction-storm",
+      "phase": "eval",
+      "memoriesBefore": 457,
+      "off": {
+        "topTitle": "Redis eviction storm causing cache miss and DB overload",
+        "topRootCause": "Memory pressure on redis‑cache‑0 triggered an allkeys‑LRU eviction storm, flushing most session keys. Cache hit ratio collapsed, auth‑svc fell back to Postgres for session lookups, saturating the DB CPU and inflating login latency.",
+        "judgedFamilies": [
+          "redis-eviction-storm",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.78,
+        "latencyMs": 3875,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the Redis eviction storm, matching the ground truth, whereas hypothesis #2 does not."
+      },
+      "on": {
+        "topTitle": "Salary Day Cache Stampede",
+        "topRootCause": "High traffic volume during the salary cycle saturated Redis, causing session key evictions.",
+        "judgedFamilies": [
+          "redis-eviction-storm",
+          "redis-eviction-storm",
+          "redis-eviction-storm"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 14764,
+        "citedIncidents": [
+          "INC-2204",
+          "INC-2210",
+          "INC-2281",
+          "INC-2316",
+          "INC-2347",
+          "INC-2360",
+          "INC-2367"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 matches the ground truth by attributing the issue to a Redis cache stampede caused by traffic surge, just like the actual cause."
+      },
+      "cumulative": {
+        "off": 41,
+        "on": 41,
+        "offAccuracy": 1,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 1,
+        "on": 1
+      }
+    },
+    {
+      "index": 42,
+      "id": "INC-2369",
+      "title": "Checkout success rate drop — payments-api worker timeouts",
+      "service": "payments-api",
+      "startedAt": "2026-10-01T21:17:00.000Z",
+      "family": "db-pool-exhaustion",
+      "phase": "eval",
+      "memoriesBefore": 465,
+      "off": {
+        "topTitle": "Gunicorn overload after config change",
+        "topRootCause": "Increasing workers from 8→16 and threads from 2→4 caused excessive memory/CPU usage, leading to worker timeouts and 503 responses from Envoy.",
+        "judgedFamilies": [
+          "unknown",
+          "db-pool-exhaustion",
+          "unknown"
+        ],
+        "correct": false,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 2077,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 blames memory/CPU overload, not the DB connection pool exhaustion that caused the ground‑truth failure."
+      },
+      "on": {
+        "topTitle": "db-pool-exhaustion",
+        "topRootCause": "Deployment cabd556 increased worker and thread counts, exceeding database max_connections.",
+        "judgedFamilies": [
+          "db-pool-exhaustion",
+          "bad-config-push"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.95,
+        "latencyMs": 10908,
+        "citedIncidents": [
+          "INC-2232",
+          "INC-2237",
+          "INC-2292",
+          "INC-2304",
+          "INC-2357",
+          "INC-2369"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the DB connection pool exhaustion described in the ground truth, whereas hypothesis #2 does not."
+      },
+      "cumulative": {
+        "off": 41,
+        "on": 42,
+        "offAccuracy": 0.9761904761904762,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 0.9,
+        "on": 1
+      }
+    },
+    {
+      "index": 43,
+      "id": "INC-2371",
+      "title": "payments-api 5xx right after a feature-flag push",
+      "service": "payments-api",
+      "startedAt": "2026-10-03T05:50:00.000Z",
+      "family": "npci-bank-timeout",
+      "phase": "eval",
+      "memoriesBefore": 477,
+      "off": {
+        "topTitle": "DB connection pool exhaustion in upi‑gateway",
+        "topRootCause": "The NPCI client pool in upi‑gateway hit its max (200/200), causing upstream 504 responses which propagate as 5xx errors in payments‑api, likely aggravated by the new retry flag increasing load.",
+        "judgedFamilies": [
+          "npci-bank-timeout"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 2617,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the NPCI client pool timeout as the cause, matching the ground truth, rather than a database pool issue."
+      },
+      "on": {
+        "topTitle": "NPCI Bank Timeout (UTIB)",
+        "topRootCause": "High latency (29.8s) from the UTIB bank switch causing thread pool saturation in the upi-gateway.",
+        "judgedFamilies": [
+          "npci-bank-timeout",
+          "bad-config-push",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 14206,
+        "citedIncidents": [
+          "INC-2226",
+          "INC-2273",
+          "INC-2310",
+          "INC-2330",
+          "INC-2336",
+          "INC-2340",
+          "INC-2362",
+          "INC-2371"
+        ],
+        "fixesToAvoid": 4,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the NPCI bank timeout, matching the ground truth, while the others describe different or vague mechanisms."
+      },
+      "cumulative": {
+        "off": 42,
+        "on": 43,
+        "offAccuracy": 0.9767441860465116,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 0.9,
+        "on": 1
+      }
+    },
+    {
+      "index": 44,
+      "id": "INC-2376",
+      "title": "OTP SMS delivery SLO breach",
+      "service": "auth-svc",
+      "startedAt": "2026-10-04T15:35:00.000Z",
+      "family": "kafka-consumer-lag",
+      "phase": "eval",
+      "memoriesBefore": 490,
+      "off": {
+        "topTitle": "Kafka consumer lag after broker patch and rebalance",
+        "topRootCause": "The recent Kafka broker patch caused the group coordinator to move, triggering repeated rebalances of the notif-worker consumer group. During rebalance, consumers paused, causing the otp.events topic lag to grow to ~84k messages, resulting in OTP dispatch timeouts.",
+        "judgedFamilies": [
+          "kafka-consumer-lag",
+          "unknown",
+          "bad-config-push"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 2713,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the Kafka rebalance‑induced consumer lag, matching the ground truth."
+      },
+      "on": {
+        "topTitle": "Kafka Group Rebalance Storm",
+        "topRootCause": "The restart of kafka-1 as group coordinator forced an eager rebalance, triggering generation churn.",
+        "judgedFamilies": [
+          "kafka-consumer-lag",
+          "kafka-consumer-lag",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 11225,
+        "citedIncidents": [
+          "INC-2212",
+          "INC-2219",
+          "INC-2246",
+          "INC-2251",
+          "INC-2325",
+          "INC-2376"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the rebalance‑storm caused by the broker restart, matching the ground‑truth cause."
+      },
+      "cumulative": {
+        "off": 43,
+        "on": 44,
+        "offAccuracy": 0.9772727272727273,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 0.9,
+        "on": 1
+      }
+    },
+    {
+      "index": 45,
+      "id": "INC-2380",
+      "title": "ledger-svc nightly reconciliation failing with DB errors",
+      "service": "ledger-svc",
+      "startedAt": "2026-10-05T21:40:00.000Z",
+      "family": "tls-secret-expiry",
+      "phase": "eval",
+      "memoriesBefore": 507,
+      "off": {
+        "topTitle": "Invalid DB credentials after secret rotation",
+        "topRootCause": "Vault rotated the dynamic database credentials for ledger‑svc, but the service was not updated with the new password, leading to authentication failures and HikariPool initialization errors.",
+        "judgedFamilies": [
+          "tls-secret-expiry"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 2492,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the secret rotation causing authentication failures, matching the ground truth mechanism."
+      },
+      "on": {
+        "topTitle": "Stale Database Credentials",
+        "topRootCause": "Running ledger-svc pods have not picked up the newly rotated credentials and are using an expired lease.",
+        "judgedFamilies": [
+          "tls-secret-expiry",
+          "db-pool-exhaustion",
+          "bad-config-push"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 14516,
+        "citedIncidents": [
+          "INC-2244",
+          "INC-2254",
+          "INC-2263",
+          "INC-2275",
+          "INC-2292",
+          "INC-2298",
+          "INC-2380"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the rotated secret causing stale credentials, matching the ground‑truth TLS secret expiry cause."
+      },
+      "cumulative": {
+        "off": 44,
+        "on": 45,
+        "offAccuracy": 0.9777777777777777,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 0.9,
+        "on": 1
+      }
+    },
+    {
+      "index": 46,
+      "id": "INC-2384",
+      "title": "Payout API errors after config change",
+      "service": "payments-api",
+      "startedAt": "2026-10-08T08:32:00.000Z",
+      "family": "bad-config-push",
+      "phase": "eval",
+      "memoriesBefore": 521,
+      "off": {
+        "topTitle": "Bad config value for PAYOUT_BATCH_SIZE",
+        "topRootCause": "The ConfigMap change introduced a non‑numeric value ('5k') for PAYOUT_BATCH_SIZE, and the code expects an integer, causing a ValueError and 500 responses for every payout request.",
+        "judgedFamilies": [
+          "bad-config-push"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.93,
+        "latencyMs": 2381,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 exactly matches the ground truth bad-config-push cause."
+      },
+      "on": {
+        "topTitle": "Invalid Configuration Value",
+        "topRootCause": "The PAYOUT_BATCH_SIZE configuration was set to '5k', which is not a valid integer, causing a ValueError during application startup.",
+        "judgedFamilies": [
+          "bad-config-push",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.95,
+        "latencyMs": 12672,
+        "citedIncidents": [
+          "INC-2232",
+          "INC-2260",
+          "INC-2270",
+          "INC-2288",
+          "INC-2320",
+          "INC-2333",
+          "INC-2345",
+          "INC-2384"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the bad configuration push causing the failure, matching the ground truth, whereas hypothesis #2 is vague."
+      },
+      "cumulative": {
+        "off": 45,
+        "on": 46,
+        "offAccuracy": 0.9782608695652174,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 0.9,
+        "on": 1
+      }
+    },
+    {
+      "index": 47,
+      "id": "INC-2387",
+      "title": "Festive sale day 1 — payments-api DB pool timeouts",
+      "service": "payments-api",
+      "startedAt": "2026-10-10T14:45:00.000Z",
+      "family": "redis-eviction-storm",
+      "phase": "eval",
+      "memoriesBefore": 529,
+      "off": {
+        "topTitle": "DB connection‑pool exhaustion under traffic spike",
+        "topRootCause": "The sudden 4.5× traffic increase exhausts the SQLAlchemy connection pool (size 20 + overflow 10). New requests block waiting for a connection, causing timeouts and high request latency.",
+        "judgedFamilies": [
+          "db-pool-exhaustion",
+          "redis-eviction-storm"
+        ],
+        "correct": false,
+        "top3Correct": true,
+        "confidence": 0.78,
+        "latencyMs": 2247,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 blames the DB pool exhaustion as the primary cause, whereas the ground truth identifies a Redis eviction storm as the root cause."
+      },
+      "on": {
+        "topTitle": "Redis Cache Stampede & Eviction",
+        "topRootCause": "High volume of requests failing to find cached configuration data due to mass key eviction.",
+        "judgedFamilies": [
+          "redis-eviction-storm",
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.95,
+        "latencyMs": 14889,
+        "citedIncidents": [
+          "INC-2204",
+          "INC-2237",
+          "INC-2265",
+          "INC-2281",
+          "INC-2292",
+          "INC-2304",
+          "INC-2316",
+          "INC-2347",
+          "INC-2357",
+          "INC-2360",
+          "INC-2369",
+          "INC-2387"
+        ],
+        "fixesToAvoid": 4,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the Redis eviction storm, matching the ground truth, whereas hypothesis #2 describes the downstream DB pool exhaustion, a symptom rather than the root cause."
+      },
+      "cumulative": {
+        "off": 45,
+        "on": 47,
+        "offAccuracy": 0.9574468085106383,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 0.8,
+        "on": 1
+      }
+    },
+    {
+      "index": 48,
+      "id": "INC-2390",
+      "title": "UPI collect requests expiring",
+      "service": "upi-gateway",
+      "startedAt": "2026-10-12T04:10:00.000Z",
+      "family": "npci-bank-timeout",
+      "phase": "eval",
+      "memoriesBefore": 541,
+      "off": {
+        "topTitle": "NPCI client pool saturation causing downstream bank timeouts (ICICI)",
+        "topRootCause": "The npci-client connection pool reached near‑capacity, preventing timely requests to the ICICI bank endpoint. As a result, RespPay responses were not received within the 300 s window, leading to high collect expiries.",
+        "judgedFamilies": [
+          "npci-bank-timeout",
+          "npci-bank-timeout",
+          "npci-bank-timeout"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.78,
+        "latencyMs": 2663,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the NPCI client pool saturation leading to bank timeouts, which matches the ground‑truth cause."
+      },
+      "on": {
+        "topTitle": "ICICI Remitter-Bank Degradation at NPCI",
+        "topRootCause": "ICICI bank degradation causing npci-client pool saturation",
+        "judgedFamilies": [
+          "npci-bank-timeout",
+          "npci-bank-timeout",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 10950,
+        "citedIncidents": [
+          "INC-2226",
+          "INC-2273",
+          "INC-2330",
+          "INC-2336",
+          "INC-2340",
+          "INC-2362",
+          "INC-2371",
+          "INC-2390"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 matches the ground‑truth cause (ICICI bank degradation leading to NPCI client pool saturation), while #2 is a broader NPCI timeout and #3 is unrelated."
+      },
+      "cumulative": {
+        "off": 46,
+        "on": 48,
+        "offAccuracy": 0.9583333333333334,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 0.8,
+        "on": 1
+      }
+    },
+    {
+      "index": 49,
+      "id": "INC-2394",
+      "title": "Merchant API 401 storm just after midnight",
+      "service": "auth-svc",
+      "startedAt": "2026-10-12T18:38:00.000Z",
+      "family": "tls-secret-expiry",
+      "phase": "eval",
+      "memoriesBefore": 550,
+      "off": {
+        "topTitle": "JWT signing key rotation caused stale JWKS cache",
+        "topRootCause": "The Vault rotation created a new version of the JWT signing key (kid=paynest-2026-10) but auth‑svc’s JWKS cache still held the old key (paynest-2026-09) for ~24h, causing token signature verification failures and 401 spikes.",
+        "judgedFamilies": [
+          "tls-secret-expiry"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 2266,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 describes the same secret rotation and stale cache issue as the ground truth, matching the tls-secret-expiry family."
+      },
+      "on": {
+        "topTitle": "Stale JWKS Cache after Key Rotation",
+        "topRootCause": "The service is serving a stale JWKS from memory that does not contain the new key ID after a Vault rotation.",
+        "judgedFamilies": [
+          "tls-secret-expiry",
+          "tls-secret-expiry",
+          "bad-config-push"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.95,
+        "latencyMs": 15107,
+        "citedIncidents": [
+          "INC-2244",
+          "INC-2263",
+          "INC-2351",
+          "INC-2394"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the stale JWKS cache after key rotation, matching the ground‑truth tls‑secret‑expiry cause."
+      },
+      "cumulative": {
+        "off": 47,
+        "on": 49,
+        "offAccuracy": 0.9591836734693877,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 0.8,
+        "on": 1
+      }
+    },
+    {
+      "index": 50,
+      "id": "INC-2399",
+      "title": "ledger-svc slow writes after parallel settlement rollout",
+      "service": "ledger-svc",
+      "startedAt": "2026-10-14T11:00:00.000Z",
+      "family": "db-pool-exhaustion",
+      "phase": "eval",
+      "memoriesBefore": 560,
+      "off": {
+        "topTitle": "DB connection pool exhaustion after scaling change",
+        "topRootCause": "The deployment raised Hikari maximumPoolSize to 80 and increased replicas, but PostgreSQL max_connections remained at 600. With 10 replicas each opening up to 80 connections, the total demand (~800) exceeds the DB limit, leading to pool timeouts and high write latency.",
+        "judgedFamilies": [
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 1580,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 exactly matches the ground truth description of DB pool exhaustion due to exceeding PostgreSQL max_connections."
+      },
+      "on": {
+        "topTitle": "Database Connection Pool Over-Provisioning",
+        "topRootCause": "Deployment of commit ec737ed increased Hikari maximumPoolSize and replicas, causing total connection demand to exceed the database max_connections limit.",
+        "judgedFamilies": [
+          "db-pool-exhaustion",
+          "db-pool-exhaustion",
+          "db-pool-exhaustion"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 15179,
+        "citedIncidents": [
+          "INC-2223",
+          "INC-2232",
+          "INC-2298",
+          "INC-2304",
+          "INC-2357",
+          "INC-2369",
+          "INC-2399"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the over‑provisioned Hikari pool exceeding the DB max_connections, matching the ground‑truth cause."
+      },
+      "cumulative": {
+        "off": 48,
+        "on": 50,
+        "offAccuracy": 0.96,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 0.8,
+        "on": 1
+      }
+    },
+    {
+      "index": 51,
+      "id": "INC-2404",
+      "title": "Push notifications delayed after topic change",
+      "service": "notif-worker",
+      "startedAt": "2026-10-15T14:25:00.000Z",
+      "family": "kafka-consumer-lag",
+      "phase": "eval",
+      "memoriesBefore": 570,
+      "off": {
+        "topTitle": "Kafka consumer lag after partition increase",
+        "topRootCause": "Increasing payment.events partitions caused a consumer group rebalance; notif‑worker instances failed to claim new partitions and fell behind, building up >200k messages of lag and delaying push notifications.",
+        "judgedFamilies": [
+          "kafka-consumer-lag"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.88,
+        "latencyMs": 1572,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the rebalance‑induced consumer lag as the root cause, matching the ground truth."
+      },
+      "on": {
+        "topTitle": "Partition-Rebalance Storm (Consumer Group Stall)",
+        "topRootCause": "Partition count increase triggered rebalance loop and CommitFailedException.",
+        "judgedFamilies": [
+          "kafka-consumer-lag",
+          "kafka-consumer-lag",
+          "kafka-consumer-lag"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 14627,
+        "citedIncidents": [
+          "INC-2212",
+          "INC-2219",
+          "INC-2240",
+          "INC-2246",
+          "INC-2251",
+          "INC-2325",
+          "INC-2376",
+          "INC-2404"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 matches the ground truth by pinpointing the partition count increase that triggered a rebalance loop and commit failures, which is the same mechanism causing the lag."
+      },
+      "cumulative": {
+        "off": 49,
+        "on": 51,
+        "offAccuracy": 0.9607843137254902,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 0.8,
+        "on": 1
+      }
+    },
+    {
+      "index": 52,
+      "id": "INC-2409",
+      "title": "payments-api 429 surge during festive traffic",
+      "service": "payments-api",
+      "startedAt": "2026-10-17T06:40:00.000Z",
+      "family": "bad-config-push",
+      "phase": "eval",
+      "memoriesBefore": 581,
+      "off": {
+        "topTitle": "Rate‑limit misconfiguration causing per‑merchant throttling",
+        "topRootCause": "The recent config push increased ratelimit.max_rps but did not propagate correctly to all pods or was applied with an unintended lower effective limit, causing merchants to hit the 50 rps ceiling.",
+        "judgedFamilies": [
+          "bad-config-push",
+          "unknown",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.78,
+        "latencyMs": 3141,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 matches the ground‑truth cause (a config push typo setting a low ratelimit), whereas the others describe traffic spikes or downstream throttling, not the mis‑configured feature flag."
+      },
+      "on": {
+        "topTitle": "ConfigMap Typo: Ratelimit misconfiguration",
+        "topRootCause": "Recent commit 538abee introduced a typo setting ratelimit.max_rps to 50 instead of the expected value.",
+        "judgedFamilies": [
+          "bad-config-push",
+          "bad-config-push",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 13221,
+        "citedIncidents": [
+          "INC-2260",
+          "INC-2270",
+          "INC-2320",
+          "INC-2345",
+          "INC-2409"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the typo in the config push that caused the throttling, matching the ground truth."
+      },
+      "cumulative": {
+        "off": 50,
+        "on": 52,
+        "offAccuracy": 0.9615384615384616,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 0.9,
+        "on": 1
+      }
+    },
+    {
+      "index": 53,
+      "id": "INC-2411",
+      "title": "upi-gateway long GC pauses and latency",
+      "service": "upi-gateway",
+      "startedAt": "2026-10-18T04:55:00.000Z",
+      "family": "npci-bank-timeout",
+      "phase": "eval",
+      "memoriesBefore": 590,
+      "off": {
+        "topTitle": "Logging library upgrade caused allocation surge",
+        "topRootCause": "The new logging library version emits larger log objects and increased GC pressure, filling the heap and saturating the NPCI client executor queue, leading to GC pauses and request timeouts.",
+        "judgedFamilies": [
+          "unknown",
+          "unknown",
+          "npci-bank-timeout"
+        ],
+        "correct": false,
+        "top3Correct": true,
+        "confidence": 0.78,
+        "latencyMs": 2853,
+        "citedIncidents": [],
+        "fixesToAvoid": 3,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 blames a logging library allocation surge, whereas the ground truth attributes the issue to an NPCI bank timeout."
+      },
+      "on": {
+        "topTitle": "NPCI Bank Switch Degradation",
+        "topRootCause": "External bank degradation at NPCI causing thread pool saturation.",
+        "judgedFamilies": [
+          "npci-bank-timeout",
+          "unknown",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 13291,
+        "citedIncidents": [
+          "INC-2273",
+          "INC-2310",
+          "INC-2330",
+          "INC-2336",
+          "INC-2340",
+          "INC-2362",
+          "INC-2371",
+          "INC-2390",
+          "INC-2411"
+        ],
+        "fixesToAvoid": 4,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the NPCI/bank timeout cause, matching the ground truth, whereas #2 and #3 describe unrelated symptoms."
+      },
+      "cumulative": {
+        "off": 50,
+        "on": 53,
+        "offAccuracy": 0.9433962264150944,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 0.8,
+        "on": 1
+      }
+    },
+    {
+      "index": 54,
+      "id": "INC-2416",
+      "title": "VPA resolution slow on Dussehra evening",
+      "service": "upi-gateway",
+      "startedAt": "2026-10-20T13:10:00.000Z",
+      "family": "redis-eviction-storm",
+      "phase": "eval",
+      "memoriesBefore": 601,
+      "off": {
+        "topTitle": "Redis memory exhaustion causing eviction storm",
+        "topRootCause": "The new deployment caches full VPA profiles (≈38 KB each), rapidly filling the 16 GB Redis instance. Near‑full memory triggers evictions and output‑buffer limits, leading to high cache‑miss rates and fallback to DB reads.",
+        "judgedFamilies": [
+          "redis-eviction-storm",
+          "db-pool-exhaustion",
+          "bad-config-push"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.78,
+        "latencyMs": 2520,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 matches the ground‑truth cause by describing Redis memory exhaustion and eviction storm, unlike the other hypotheses."
+      },
+      "on": {
+        "topTitle": "VPA Profile Cache Stampede",
+        "topRootCause": "Deployment d007710 increased cache object size to ~38KB, reducing Redis capacity and causing memory exhaustion.",
+        "judgedFamilies": [
+          "redis-eviction-storm",
+          "db-pool-exhaustion",
+          "npci-bank-timeout"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.95,
+        "latencyMs": 11653,
+        "citedIncidents": [
+          "INC-2204",
+          "INC-2254",
+          "INC-2281",
+          "INC-2316",
+          "INC-2416"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the Redis eviction storm caused by large VPA profile caching, matching the ground truth."
+      },
+      "cumulative": {
+        "off": 51,
+        "on": 54,
+        "offAccuracy": 0.9444444444444444,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 0.8,
+        "on": 1
+      }
+    },
+    {
+      "index": 55,
+      "id": "INC-2420",
+      "title": "Partner webhook deliveries failing",
+      "service": "auth-svc",
+      "startedAt": "2026-10-21T01:35:00.000Z",
+      "family": "tls-secret-expiry",
+      "phase": "eval",
+      "memoriesBefore": 613,
+      "off": {
+        "topTitle": "TLS certificate expired on webhook endpoint",
+        "topRootCause": "The TLS certificate for api.paynest.in expired (or is not yet valid) and cert‑manager could not complete a renewal due to an ACME 403 authorization error.",
+        "judgedFamilies": [
+          "tls-secret-expiry"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.94,
+        "latencyMs": 1802,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the TLS certificate expiration and renewal failure, matching the ground truth cause."
+      },
+      "on": {
+        "topTitle": "tls-secret-expiry",
+        "topRootCause": "The certificate for api.paynest.in has expired and cert-manager is failing the DNS-01 challenge due to insufficient IAM permissions in Route53.",
+        "judgedFamilies": [
+          "tls-secret-expiry",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 13231,
+        "citedIncidents": [
+          "INC-2216",
+          "INC-2263",
+          "INC-2285",
+          "INC-2420"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the TLS certificate expiry and DNS‑01 challenge failure, matching the ground truth."
+      },
+      "cumulative": {
+        "off": 52,
+        "on": 55,
+        "offAccuracy": 0.9454545454545454,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 0.8,
+        "on": 1
+      }
+    },
+    {
+      "index": 56,
+      "id": "INC-2422",
+      "title": "payments-api 5xx after festive HPA change",
+      "service": "payments-api",
+      "startedAt": "2026-10-23T16:00:00.000Z",
+      "family": "db-pool-exhaustion",
+      "phase": "eval",
+      "memoriesBefore": 623,
+      "off": {
+        "topTitle": "DB connection pool exhaustion after HPA scale‑out",
+        "topRootCause": "Increasing the number of pods caused each pod to open new DB connections, exceeding the PostgreSQL max_connections and pgbouncer max_client_conn limits, resulting in connection refusals and 5xx errors.",
+        "judgedFamilies": [
+          "db-pool-exhaustion",
+          "unknown",
+          "bad-config-push"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 2081,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the DB connection pool exhaustion caused by HPA scaling, matching the ground truth."
+      },
+      "on": {
+        "topTitle": "HPA Scale-Out Causing Connection Overload",
+        "topRootCause": "Increased HPA maxReplicas caused total demand for database connections to exceed configured limits of pgbouncer and postgres.",
+        "judgedFamilies": [
+          "db-pool-exhaustion",
+          "db-pool-exhaustion",
+          "redis-eviction-storm"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 14598,
+        "citedIncidents": [
+          "INC-2210",
+          "INC-2232",
+          "INC-2237",
+          "INC-2265",
+          "INC-2292",
+          "INC-2304",
+          "INC-2316",
+          "INC-2333",
+          "INC-2345",
+          "INC-2357",
+          "INC-2369",
+          "INC-2384",
+          "INC-2387",
+          "INC-2422"
+        ],
+        "fixesToAvoid": 4,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the same DB pool exhaustion mechanism as the ground truth."
+      },
+      "cumulative": {
+        "off": 53,
+        "on": 56,
+        "offAccuracy": 0.9464285714285714,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 0.8,
+        "on": 1
+      }
+    },
+    {
+      "index": 57,
+      "id": "INC-2427",
+      "title": "Debit SMS not received — complaints spike",
+      "service": "notif-worker",
+      "startedAt": "2026-10-24T07:45:00.000Z",
+      "family": "kafka-consumer-lag",
+      "phase": "eval",
+      "memoriesBefore": 634,
+      "off": {
+        "topTitle": "Kafka consumer lag after poll interval breach",
+        "topRootCause": "Increasing max.poll.records to 5000 caused the consumer to spend >300 s processing a batch (SMS provider call took ~2.2 s per batch), exceeding max.poll.interval.ms. The consumer was kicked out of the group, triggering a rebalance and leaving a backlog of ~300k messages, which reduced the SMS send rate.",
+        "judgedFamilies": [
+          "kafka-consumer-lag"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 2449,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the max.poll.records increase causing poll interval breach and consumer lag, matching the ground truth."
+      },
+      "on": {
+        "topTitle": "Sync Processing Timeout",
+        "topRootCause": "Increasing max.poll.records to 5000 while SMS calls remain synchronous causes processing time to exceed max.poll.interval.ms.",
+        "judgedFamilies": [
+          "kafka-consumer-lag",
+          "kafka-consumer-lag",
+          "kafka-consumer-lag"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.95,
+        "latencyMs": 13540,
+        "citedIncidents": [
+          "INC-2212",
+          "INC-2219",
+          "INC-2240",
+          "INC-2246",
+          "INC-2251",
+          "INC-2325",
+          "INC-2360",
+          "INC-2376",
+          "INC-2427"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the same poll‑interval timeout mechanism as the ground truth, just phrased as a sync processing timeout."
+      },
+      "cumulative": {
+        "off": 54,
+        "on": 57,
+        "offAccuracy": 0.9473684210526315,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 0.9,
+        "on": 1
+      }
+    },
+    {
+      "index": 58,
+      "id": "INC-2430",
+      "title": "Refunds failing with ledger-svc 404s",
+      "service": "payments-api",
+      "startedAt": "2026-10-26T12:15:00.000Z",
+      "family": "bad-config-push",
+      "phase": "eval",
+      "memoriesBefore": 645,
+      "off": {
+        "topTitle": "Feature‑flag rollout points to missing service version",
+        "topRootCause": "The `refund_via_ledger_v2` flag was enabled, causing payments‑api to call `/v2/refunds` on ledger‑svc, but the Ledger service is still running only v1 (no `/v2/refunds` route). The upstream 404 is translated to 502 by the API gateway, inflating the refund failure rate.",
+        "judgedFamilies": [
+          "bad-config-push"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 1699,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the bad feature‑flag push causing calls to a missing v2 endpoint, matching the ground‑truth cause."
+      },
+      "on": {
+        "topTitle": "Feature Flag Mismatch (Incompatible Service Deployment)",
+        "topRootCause": "The refund_via_ledger_v2 flag enabled traffic to a path that does not exist on the target ledger-svc.",
+        "judgedFamilies": [
+          "bad-config-push",
+          "bad-config-push"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 12976,
+        "citedIncidents": [
+          "INC-2270",
+          "INC-2288",
+          "INC-2316",
+          "INC-2333",
+          "INC-2345",
+          "INC-2360",
+          "INC-2430"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 matches the ground truth by identifying the same feature‑flag misconfiguration that caused traffic to hit a non‑existent endpoint."
+      },
+      "cumulative": {
+        "off": 55,
+        "on": 58,
+        "offAccuracy": 0.9482758620689655,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 0.9,
+        "on": 1
+      }
+    },
+    {
+      "index": 59,
+      "id": "INC-2435",
+      "title": "UPI success rate collapse across ALL banks",
+      "service": "upi-gateway",
+      "startedAt": "2026-10-28T18:20:00.000Z",
+      "family": "tls-secret-expiry",
+      "phase": "eval",
+      "memoriesBefore": 656,
+      "off": {
+        "topTitle": "TLS secret expiry for NPCI communication",
+        "topRootCause": "The TLS certificate used by upi-gateway to authenticate to NPCI expired or was replaced without updating the secret in the cluster, causing handshake failures across all payer banks.",
+        "judgedFamilies": [
+          "tls-secret-expiry"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.92,
+        "latencyMs": 2600,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 correctly identifies the TLS certificate expiration causing the failure, matching the ground truth."
+      },
+      "on": {
+        "topTitle": "NPCI mTLS Client Certificate Expiry",
+        "topRootCause": "The mTLS client certificate used for communication with NPCI has expired.",
+        "judgedFamilies": [
+          "tls-secret-expiry",
+          "unknown",
+          "unknown"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.95,
+        "latencyMs": 9885,
+        "citedIncidents": [
+          "INC-2216",
+          "INC-2285",
+          "INC-2435"
+        ],
+        "fixesToAvoid": 2,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly identifies the mTLS client certificate expiry, matching the ground truth."
+      },
+      "cumulative": {
+        "off": 56,
+        "on": 59,
+        "offAccuracy": 0.9491525423728814,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 0.9,
+        "on": 1
+      }
+    },
+    {
+      "index": 60,
+      "id": "INC-2439",
+      "title": "payments-api readiness flapping overnight",
+      "service": "payments-api",
+      "startedAt": "2026-10-29T20:40:00.000Z",
+      "family": "db-pool-exhaustion",
+      "phase": "eval",
+      "memoriesBefore": 664,
+      "off": {
+        "topTitle": "DB connection pool exhaustion caused by settlement‑report threads",
+        "topRootCause": "The new settlement‑report background workers (8 threads per pod) are using the same SQLAlchemy request pool as the API handlers, exceeding the configured pool size (20) and overflow (10), leading to timeouts and readiness failures.",
+        "judgedFamilies": [
+          "db-pool-exhaustion",
+          "db-pool-exhaustion",
+          "npci-bank-timeout"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.85,
+        "latencyMs": 3013,
+        "citedIncidents": [],
+        "fixesToAvoid": 2,
+        "model": "openai/gpt-oss-120b",
+        "judgeReason": "Hypothesis #1 describes the same DB pool exhaustion mechanism as the ground truth."
+      },
+      "on": {
+        "topTitle": "Settlement-report background threads exhausting DB pool",
+        "topRootCause": "Background thread pool sharing the main request database connection pool.",
+        "judgedFamilies": [
+          "db-pool-exhaustion",
+          "unknown",
+          "redis-eviction-storm"
+        ],
+        "correct": true,
+        "top3Correct": true,
+        "confidence": 0.9,
+        "latencyMs": 11966,
+        "citedIncidents": [
+          "INC-2237",
+          "INC-2265",
+          "INC-2292",
+          "INC-2304",
+          "INC-2357",
+          "INC-2422",
+          "INC-2439"
+        ],
+        "fixesToAvoid": 3,
+        "model": "hindsight-reflect",
+        "judgeReason": "Hypothesis #1 correctly describes the DB pool exhaustion described in the ground truth, while the others do not."
+      },
+      "cumulative": {
+        "off": 57,
+        "on": 60,
+        "offAccuracy": 0.95,
+        "onAccuracy": 1
+      },
+      "rolling": {
+        "off": 0.9,
+        "on": 1
+      }
+    }
+  ]
+}

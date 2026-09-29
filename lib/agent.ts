@@ -21,6 +21,7 @@ import {
   type FeedbackOutcome,
   type IncidentInput,
   type MemoryItem,
+  type ProgressEvent,
 } from "./types";
 
 const TAXONOMY = FAMILIES.map((f) => `- ${f}: ${FAMILY_LABELS[f]}`).join("\n");
@@ -133,14 +134,43 @@ async function diagnoseFromRecall(input: IncidentInput, memories: MemoryItem[]):
   return { diagnosis: data, model };
 }
 
-export async function diagnoseWithMemory(input: IncidentInput, opts: { bankId?: string } = {}): Promise<DiagnoseResult> {
+export async function diagnoseWithMemory(
+  input: IncidentInput,
+  opts: { bankId?: string; onProgress?: (e: ProgressEvent) => void } = {},
+): Promise<DiagnoseResult> {
   const bankId = opts.bankId ?? BANK_ID;
+  const progress = opts.onProgress ?? (() => {});
   const t0 = Date.now();
   const warnings: string[] = [];
   const alertText = renderAlert(input);
   const service = input.service ?? "";
 
-  // Feedback verdicts are recalled first (tag-scoped) so reflect is told about them explicitly.
+  // 1. Similar-incident recall (+ service observations) starts immediately; it feeds the inspector.
+  progress({ step: "recall", status: "start" });
+  const recallP = recallMemories(alertText, { bankId, maxTokens: 3000, budget: "mid" }).then(
+    (items) => {
+      const incidents = new Set(items.map((m) => m.documentId).filter((d) => d && /^INC-\d{4}$/.test(d)));
+      progress({ step: "recall", status: "done", detail: `${items.length} memories from ${incidents.size} past incidents` });
+      return items;
+    },
+    (err) => {
+      progress({ step: "recall", status: "error", detail: describeError(err) });
+      throw err;
+    },
+  );
+  const obsP = recallMemories(`Recurring failure patterns, fixes that worked, fixes that failed and experts for ${service || "this service"}`, {
+    bankId,
+    types: ["observation"],
+    maxTokens: 1200,
+    budget: "low",
+  });
+
+  // Mark as handled now; results/errors are collected by allSettled below.
+  recallP.catch(() => {});
+  obsP.catch(() => {});
+
+  // 2. On-call feedback verdicts (tag-scoped) are fetched first so reflect is told about them explicitly.
+  progress({ step: "feedback", status: "start" });
   const feedback = await recallMemories(alertText, {
     bankId,
     types: ["experience"],
@@ -154,17 +184,29 @@ export async function diagnoseWithMemory(input: IncidentInput, opts: { bankId?: 
       warnings.push(`Feedback recall failed: ${describeError(err)}`);
       return [] as MemoryItem[];
     });
+  const failedVerdicts = feedback.filter((f) => f.tags.includes("outcome:failed")).length;
+  progress({
+    step: "feedback",
+    status: "done",
+    detail: feedback.length
+      ? `${feedback.length} on-call verdict${feedback.length === 1 ? "" : "s"} (${failedVerdicts} failed fix${failedVerdicts === 1 ? "" : "es"})`
+      : "no on-call verdicts yet",
+  });
 
-  const [recallRes, obsRes, reflectRes] = await Promise.allSettled([
-    recallMemories(alertText, { bankId, maxTokens: 3000, budget: "mid" }),
-    recallMemories(`Recurring failure patterns, fixes that worked, fixes that failed and experts for ${service || "this service"}`, {
-      bankId,
-      types: ["observation"],
-      maxTokens: 1200,
-      budget: "low",
-    }),
-    reflect(reflectQuery(input, feedback), { bankId, budget: "mid", responseSchema: DIAGNOSIS_JSON_SCHEMA }),
-  ]);
+  // 3. Reflect reasons over the bank with mission, directives and disposition.
+  progress({ step: "reflect", status: "start" });
+  const reflectP = reflect(reflectQuery(input, feedback), { bankId, budget: "mid", responseSchema: DIAGNOSIS_JSON_SCHEMA }).then(
+    (r) => {
+      progress({ step: "reflect", status: "done", detail: `used ${r.basedOn.length} facts` });
+      return r;
+    },
+    (err) => {
+      progress({ step: "reflect", status: "error", detail: describeError(err) });
+      throw err;
+    },
+  );
+
+  const [recallRes, obsRes, reflectRes] = await Promise.allSettled([recallP, obsP, reflectP]);
 
   const recalled = recallRes.status === "fulfilled" ? recallRes.value : [];
   const memories = [...feedback, ...recalled.filter((m) => !feedback.some((f) => f.id === m.id))];

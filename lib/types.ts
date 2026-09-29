@@ -223,3 +223,12 @@ export interface DiagnoseResult {
 }
 
 export type FeedbackOutcome = "worked" | "failed";
+
+/** Live progress of the memory-ON pipeline, streamed to the console while it works. */
+export type ProgressStep = "recall" | "feedback" | "reflect";
+export interface ProgressEvent {
+  step: ProgressStep;
+  status: "start" | "done" | "error";
+  /** Short human-readable result, e.g. "44 memories". */
+  detail?: string;
+}

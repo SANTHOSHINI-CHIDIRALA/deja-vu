@@ -12,7 +12,8 @@
     "check": "tsx scripts/check.ts",
     "gen-data": "tsx scripts/generate-data.ts",
     "seed": "tsx scripts/seed.ts",
-    "eval": "tsx scripts/eval.ts"
+    "eval": "tsx scripts/eval.ts",
+    "eval:cold": "tsx scripts/eval-cold.ts"
   },
   "dependencies": {
     "@vectorize-io/hindsight-client": "^0.10.1",
