@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { LearningChart, SERIES } from "@/components/LearningChart";
+import { LearningChart } from "@/components/LearningChart";
+import { SERIES } from "@/lib/chart-colors";
 import { FamilyChip } from "@/components/ui";
 import type { EvalResults } from "@/lib/eval";
 import { HISTORY } from "@/lib/incidents";

@@ -1,13 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { SERIES } from "@/lib/chart-colors";
 import type { EvalRow } from "@/lib/eval";
-
-// Validated (dataviz validate_palette.js, dark surface #0f141b): CVD ΔE 27.4, contrast >= 3:1.
-export const SERIES = {
-  off: { label: "Memory OFF", color: "#3987e5" },
-  on: { label: "Memory ON", color: "#c98500" },
-} as const;
 
 const W = 760;
 const H = 320;

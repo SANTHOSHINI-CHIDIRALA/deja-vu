@@ -107,7 +107,28 @@ Code layout (small, typed modules):
 
 ## Learning curve result
 
-RESULTS_PLACEHOLDER
+From `npm run eval` (`data/eval-results.json`, 20 held-out Oct 2026 incidents, replayed chronologically, LLM-judged on failure-family match):
+
+| | Memory OFF (plain Groq) | Memory ON (Déjà Vu) |
+|---|---|---|
+| Top-1 root-cause accuracy | **80%** (16/20) | **100%** (20/20) |
+| Right family anywhere in top 3 | 100% | 100% |
+| Past incidents cited per answer | 0 | 7.6 |
+| Accuracy, first 10 → last 10 incidents | 70% → 90% | 100% → 100% |
+| Avg time to hypothesis | 2.2 s | 13.6 s |
+
+Historical human mean time-to-resolve in `data/history.json` is ~76 min, so a cited hypothesis in ~14 s is the relevant comparison — the extra latency of memory buys a correct, sourced answer.
+
+**What the numbers say, honestly:** memory ON did not need to "climb" on this set — the 40-incident history already covers all six families, so it was right from the first incident, and the gap vs memory OFF comes from the four incidents with misleading symptoms, which the memory-less agent got wrong:
+
+| Incident | Ground truth | Memory OFF said | Memory ON said |
+|---|---|---|---|
+| INC-2369 | DB pool exhaustion | "Gunicorn overload" (raise CPU limits) | DB pool exhaustion after worker bump, citing past worker-bump incidents |
+| INC-2371 | NPCI bank timeout (Axis) | DB pool exhaustion in upi-gateway | NPCI bank timeout — ignored the coincidental flag push |
+| INC-2387 | Redis eviction storm (festive sale) | DB pool exhaustion | Redis eviction storm & cache stampede |
+| INC-2411 | NPCI bank timeout (SBI) | Logging-library upgrade → GC pressure | SBI remitter-bank degradation |
+
+The within-run learning mechanism (retaining each resolution after scoring) and the feedback loop are exercised by the eval and the console respectively; a harder eval with families absent from history would be needed to show a rising memory-ON curve.
 
 ## Data
 
