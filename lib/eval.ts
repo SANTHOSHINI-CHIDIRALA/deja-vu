@@ -18,6 +18,16 @@ export interface SideResult {
   model: string;
   judgeReason: string;
   error?: string;
+  /** The agent's top recommended action (top hypothesis recommendedFix) and next checks, stored for rescoring. */
+  recommendedFix?: string;
+  nextChecks?: string[];
+  /** Fix-level metrics (cold-start eval): judged against the incident's fixThatWorked and earlier failed fixes. */
+  rightFix?: boolean;
+  repeatedFailedFix?: boolean;
+  repeatedWhich?: string | null;
+  fixJudgeReason?: string;
+  /** Full structured diagnosis, stored so metrics can be rescored later without re-running. */
+  diagnosis?: Diagnosis;
 }
 
 export interface EvalRow {
@@ -46,6 +56,14 @@ export interface EvalResults {
   rows: EvalRow[];
 }
 
+/**
+ * Judges run on different Groq models than the memory-OFF diagnosis (gpt-oss-120b): the free
+ * tier caps tokens per minute *per model*, so spreading the calls keeps the eval fast. Both
+ * sides of every incident are scored by the same judge.
+ */
+export const FAMILY_JUDGE_MODELS = ["openai/gpt-oss-20b", "qwen/qwen3.8-27b"];
+export const FIX_JUDGE_MODELS = ["openai/gpt-oss-20b", "qwen/qwen3.8-27b"];
+
 const JudgeSchema = z.object({
   families: z.array(z.string()).default([]),
   reason: z.string().default(""),
@@ -70,7 +88,7 @@ export async function judge(incident: Incident, diagnosis: Diagnosis): Promise<{
         content: `Ground truth root cause (family ${incident.family}): ${incident.rootCause}\n\nHypotheses:\n${hyps}`,
       },
     ],
-    { temperature: 0, maxTokens: 800 },
+    { temperature: 0, maxTokens: 800, models: FAMILY_JUDGE_MODELS },
   );
   const families = data.families.map((f) => (FAMILIES as readonly string[]).includes(f) ? f : "unknown");
   return { families, reason: data.reason, model };
@@ -97,12 +115,26 @@ export function summarise(rows: EvalRow[]): EvalResults["summary"] {
 }
 
 /** Run one agent on an incident and score its answer with the judge. Never throws. */
-export async function scoreSide(incident: Incident, run: () => Promise<DiagnoseResult>): Promise<SideResult> {
+export async function scoreSide(
+  incident: Incident,
+  run: () => Promise<DiagnoseResult>,
+  fixContext?: { earlierFailed: { id: string; fix: string }[] },
+): Promise<SideResult> {
   try {
     const r = await run();
     const top = r.diagnosis.hypotheses[0]!;
-    const j = await judge(incident, r.diagnosis);
+    const nextChecks = r.diagnosis.nextChecks.map((c) => (c.command ? `${c.description}: ${c.command}` : c.description));
+    const [j, fx] = await Promise.all([
+      judge(incident, r.diagnosis),
+      fixContext ? judgeFix(incident, top.recommendedFix, nextChecks, fixContext.earlierFailed) : Promise.resolve(null),
+    ]);
     return {
+      diagnosis: r.diagnosis,
+      recommendedFix: top.recommendedFix,
+      nextChecks,
+      ...(fx
+        ? { rightFix: fx.rightFix, repeatedFailedFix: fx.repeatedFailedFix, repeatedWhich: fx.repeatedWhich, fixJudgeReason: fx.reason }
+        : {}),
       topTitle: top.title,
       topRootCause: top.rootCause,
       judgedFamilies: j.families,
@@ -172,6 +204,8 @@ export interface ColdRow extends EvalRow {
   memoriesBefore: number;
   /** Rolling accuracy over the last `window` incidents, including this one. */
   rolling: { off: number; on: number };
+  /** Running totals of the fix-level metrics up to and including this incident. */
+  fixCumulative?: { rightFixOff: number; rightFixOn: number; repeatedOff: number; repeatedOn: number };
 }
 
 export interface ColdResults {
@@ -182,10 +216,18 @@ export interface ColdResults {
   window: number;
   runtimeMinutes: number;
   summary: {
-    off: { accuracy: number };
-    on: { accuracy: number };
+    off: { accuracy: number; rightFix: number; repeatedFailed: number };
+    on: { accuracy: number; rightFix: number; repeatedFailed: number };
     /** Accuracy per consecutive block of `window` incidents. */
-    blocks: { from: number; to: number; off: number; on: number; memoriesAtStart: number }[];
+    blocks: {
+      from: number;
+      to: number;
+      off: number;
+      on: number;
+      memoriesAtStart: number;
+      rightFix?: { off: number; on: number };
+      repeatedFailed?: { off: number; on: number };
+    }[];
   };
   rows: ColdRow[];
 }
@@ -197,10 +239,80 @@ export function rollingAccuracy(rows: EvalRow[], window: number, k: "off" | "on"
 
 export function summariseCold(rows: ColdRow[], window: number): ColdResults["summary"] {
   const acc = (rs: ColdRow[], k: "off" | "on") => (rs.length ? rs.filter((r) => r[k].correct).length / rs.length : 0);
+  const rate = (rs: ColdRow[], k: "off" | "on") => (rs.length ? rs.filter((r) => r[k].rightFix).length / rs.length : 0);
+  const repeats = (rs: ColdRow[], k: "off" | "on") => rs.filter((r) => r[k].repeatedFailedFix).length;
   const blocks: ColdResults["summary"]["blocks"] = [];
   for (let i = 0; i < rows.length; i += window) {
     const b = rows.slice(i, i + window);
-    blocks.push({ from: i + 1, to: i + b.length, off: acc(b, "off"), on: acc(b, "on"), memoriesAtStart: b[0]!.memoriesBefore });
+    blocks.push({
+      from: i + 1,
+      to: i + b.length,
+      off: acc(b, "off"),
+      on: acc(b, "on"),
+      memoriesAtStart: b[0]!.memoriesBefore,
+      rightFix: { off: rate(b, "off"), on: rate(b, "on") },
+      repeatedFailed: { off: repeats(b, "off"), on: repeats(b, "on") },
+    });
   }
-  return { off: { accuracy: acc(rows, "off") }, on: { accuracy: acc(rows, "on") }, blocks };
+  const side = (k: "off" | "on") => ({ accuracy: acc(rows, k), rightFix: rate(rows, k), repeatedFailed: repeats(rows, k) });
+  return { off: side("off"), on: side("on"), blocks };
+}
+
+// ------------------------------------------------------------------ fix-level judge
+
+const FixJudgeSchema = z.object({
+  rightFix: z.boolean(),
+  repeatedFailedFix: z.boolean(),
+  repeatedWhich: z.string().nullish().transform((v) => (v && v.trim() ? v : null)),
+  reason: z.string().default(""),
+});
+
+/**
+ * Judge an agent's recommended action on PayNest-specific terms:
+ *  - rightFix: the TOP recommended action is specifically the fix that worked for
+ *    this incident (same concrete action/tool/runbook/route), not a generic equivalent;
+ *  - repeatedFailedFix: the recommendation (top fix + next checks, excluding anything
+ *    it explicitly warns against) includes a fix that already FAILED in an earlier
+ *    incident of the same family.
+ */
+export async function judgeFix(
+  incident: Incident,
+  recommendedFix: string,
+  nextChecks: string[],
+  earlierFailedFixes: { id: string; fix: string }[],
+): Promise<{ rightFix: boolean; repeatedFailedFix: boolean; repeatedWhich: string | null; reason: string }> {
+  const failed = earlierFailedFixes.length
+    ? earlierFailedFixes.map((f) => `- ${f.fix} (failed in ${f.id})`).join("\n")
+    : "(none — no earlier incident of this family had a failed fix)";
+  const { data } = await chatJson(
+    FixJudgeSchema,
+    [
+      {
+        role: "system",
+        content: `You are a strict incident-review judge at PayNest. Answer two questions about an on-call agent's recommendation and return JSON {"rightFix": boolean, "repeatedFailedFix": boolean, "repeatedWhich": string|null, "reason": string}.
+rightFix = true ONLY if the agent's TOP recommended fix is specifically the ground-truth fix: the same concrete action — same internal tool/command or runbook, or the same specific config change and values, or the same named failover route. A generic equivalent ("reduce pool size", "fail over to a backup", "add a circuit breaker", "revert the config") is NOT enough unless it names the same specific mechanism. Rolling back a deploy is not the same as the ground-truth fix unless the ground truth is a rollback.
+repeatedFailedFix = true if the recommendation (top fix or next checks) tells the engineer to DO one of the listed previously-failed fixes (e.g. restart pods, scale up, FLUSHALL, raise a timeout). Mentions that explicitly warn AGAINST a fix do not count. Read-only diagnostic checks do not count. repeatedWhich = the failed fix it repeats, else null.`,
+      },
+      {
+        role: "user",
+        content: `Ground-truth fix that worked for ${incident.id}: ${incident.fixThatWorked}
+
+Fixes that FAILED in earlier ${incident.family} incidents:
+${failed}
+
+Agent's top recommended fix: ${recommendedFix || "(none given)"}
+Agent's next checks / commands:
+${nextChecks.length ? nextChecks.map((c) => `- ${c}`).join("\n") : "(none)"}`,
+      },
+    ],
+    { temperature: 0, maxTokens: 700, models: FIX_JUDGE_MODELS },
+  );
+  return { rightFix: data.rightFix, repeatedFailedFix: data.repeatedFailedFix, repeatedWhich: data.repeatedWhich, reason: data.reason };
+}
+
+/** Fixes that failed in incidents of the same family that happened before `incident`. */
+export function earlierFailedFixes(incident: Incident, all: Incident[]): { id: string; fix: string }[] {
+  return all
+    .filter((i) => i.family === incident.family && i.startedAt < incident.startedAt)
+    .flatMap((i) => i.fixesThatFailed.map((fix) => ({ id: i.id, fix })));
 }

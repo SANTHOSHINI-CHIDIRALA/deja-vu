@@ -1,5 +1,6 @@
 /** Scenario templates for the six recurring PayNest failure families. */
 import type { Family } from "../../lib/types";
+import { PAYNEST_FIX } from "./fixes";
 import { alertOf, DEVS, logTs, podName, reqId, type Rng, type Scenario } from "./common";
 
 export interface Ctx {
@@ -95,7 +96,7 @@ function dbPool({ rng, startedAt }: Ctx): Scenario {
     logs,
     change: c,
     rootCause: `${triggers[variant]} (commit ${c.sha}). ${pods} pods x ${after} workers x pool ${pool} = up to ${fmtInt(potential)} connections against postgres max_connections=${maxConn} behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection.`,
-    fixThatWorked: rng.pick(fixes),
+    fixThatWorked: (void rng.pick(fixes), PAYNEST_FIX.dbPool(service)), // PRNG draw kept so incident IDs stay stable
     fixesThatFailed: failed,
     eureka: `found it — ${c.sha} by ${c.author} bumped concurrency; ${pods}x${after}x${pool} connections vs max_connections=${maxConn}. pool exhaustion, not a code bug`,
     impact: `${fmtInt(rng.int(9000, 61000))} failed UPI collect requests (~₹${rng.int(2, 19)} Cr GMV delayed).`,
@@ -155,11 +156,7 @@ function redis({ rng, startedAt, occasion }: Ctx): Scenario {
     logs,
     change: c,
     rootCause: `${triggers[variant]}${c.sha ? ` (commit ${c.sha})` : ""}. Hot ${prefix}* keys were evicted/expired together during ${occ} peak, causing a cache stampede onto ${table} in postgres and a Redis eviction storm.`,
-    fixThatWorked: rng.pick([
-      `added ±20% TTL jitter and singleflight request coalescing on ${prefix}*; raised redis maxmemory ${maxmem}GB → ${maxmem + 8}GB`,
-      `enabled stale-while-revalidate for ${prefix}* and scaled redis-cache to a 6-shard cluster`,
-      `rolled back ${c.sha ?? "the caching change"} and pre-warmed ${prefix}* from a replica snapshot`,
-    ]),
+    fixThatWorked: (void rng.pick([0, 1, 2]), PAYNEST_FIX.redis(prefix)), // PRNG draw kept so incident IDs stay stable
     fixesThatFailed: failed,
     eureka: `it's the cache — ${prefix}* evicting en masse, every miss is a ${table} query. classic ${occ} stampede`,
     impact: `p99 latency ${rng.int(2, 7)}s for ${rng.int(18, 55)} min; ${fmtInt(rng.int(4000, 30000))} timeouts at checkout.`,
@@ -216,10 +213,7 @@ function npci({ rng, startedAt }: Ctx): Scenario {
     logs,
     change: c,
     rootCause: `${triggers[variant]}. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for ${bank} saturated the shared npci-client thread pool and dragged success rate down for every bank.`,
-    fixThatWorked: rng.pick([
-      `enabled per-bank circuit breaker for npci-${bank.toLowerCase()} (resilience4j, 50% failure threshold) and failed over ${bank} routes to NPCI-DC2; cut ReqPay timeout 30s → 8s`,
-      `opened the ${bank} circuit breaker manually, routed ${bank} via the secondary NPCI endpoint and isolated it in a bulkhead thread pool`,
-    ]),
+    fixThatWorked: (void rng.pick([0, 1]), PAYNEST_FIX.npci(bank)), // PRNG draw kept so incident IDs stay stable
     fixesThatFailed: failed,
     eureka: `it's ${bank}, not us — U90s only for payer_psp=${bank}, and they're starving the shared npci-client pool. need the breaker + failover`,
     impact: `${fmtInt(rng.int(20000, 140000))} UPI transactions failed or went DEEMED; ${bank} customers most affected.`,
@@ -272,10 +266,7 @@ function kafka({ rng, startedAt }: Ctx): Scenario {
     logs,
     change: c,
     rootCause: `${triggers[variant]} (${c.sha ?? "infra"}). Consumers exceeded max.poll.interval.ms or were revoked repeatedly, putting notif-worker into a partition-rebalance loop so lag on payment.events kept growing.`,
-    fixThatWorked: rng.pick([
-      "reverted max.poll.records to 500, switched to CooperativeStickyAssignor and enabled static membership (group.instance.id); lag drained in 25 min",
-      `pinned notif-worker replicas to ${partitions} (= partitions), enabled static membership and raised max.poll.interval.ms to 600s`,
-    ]),
+    fixThatWorked: (void rng.pick([0, 1]), PAYNEST_FIX.kafka()), // PRNG draw kept so incident IDs stay stable
     fixesThatFailed: failed,
     eureka: "rebalance storm — generation keeps bumping, commits failing on max.poll.interval.ms",
     impact: `${fmtInt(lag)} payment notifications delayed up to ${rng.int(20, 70)} min; support tickets spiked.`,
@@ -322,12 +313,6 @@ function tls({ rng, startedAt }: Ctx): Scenario {
     { fix: `rolled back the last ${service} deploy`, why: "the credential is not in the image; no change" },
     { fix: `restarted ${service} pods`, why: "pods re-mounted the same stale Secret (ExternalSecret had not synced)" },
   ]).slice(0, rng.int(0, 2));
-  const fixes = [
-    "renewed the cert with `cmctl renew auth-paynest-in`, restored Route53 IAM permission for cert-manager DNS-01",
-    "forced JWKS refresh on auth-svc (POST /admin/jwks/reload) and set JWKS cache TTL to 5 min",
-    "forced ExternalSecret resync and rolling restart of auth-svc so pods picked up new Vault DB creds",
-    "issued a new NPCI mTLS client cert from Vault PKI, updated the secret and reloaded upi-gateway",
-  ];
   return {
     title: `${service} auth failures — ${variant === 0 ? "expired TLS certificate" : "rotated secret not picked up"}`,
     service,
@@ -345,7 +330,12 @@ function tls({ rng, startedAt }: Ctx): Scenario {
     logs,
     change: c,
     rootCause: `${triggers[variant]}. ${service} failed TLS/auth for every dependent call.`,
-    fixThatWorked: fixes[variant]!,
+    fixThatWorked: [
+      PAYNEST_FIX.certRenew("auth.paynest.in"),
+      PAYNEST_FIX.jwksReload(),
+      PAYNEST_FIX.secretResync(service),
+      PAYNEST_FIX.npciClientCert(),
+    ][variant]!,
     fixesThatFailed: failed,
     eureka: variant === 1 ? "kid mismatch — JWKS cache is stale after the Vault key rotation" : "cert/secret expired — this is a credential problem, not code",
     impact: `${rng.int(12, 60)} min of failed logins/payments; ${fmtInt(rng.int(10000, 90000))} users affected.`,
@@ -402,10 +392,8 @@ function badConfig({ rng, startedAt }: Ctx): Scenario {
     logs,
     change: c,
     rootCause: `${descriptions[variant]} (change ${c.sha} by ${c.author}). Every request on the affected path failed deterministically with "${f.err.slice(0, 70)}".`,
-    fixThatWorked:
-      variant < 2
-        ? `turned off ${f.name} in Unleash (kill switch); 5xx dropped to baseline within 90s`
-        : `reverted payments-api-config ConfigMap to the previous revision (kubectl rollout undo is not enough; re-applied config ${rng.hex(7)}) and reloaded`,
+    // variant >= 2 used to draw rng.hex(7) here; the draw is kept so incident IDs stay stable.
+    fixThatWorked: variant < 2 ? PAYNEST_FIX.flagKill(f.name) : (void rng.hex(7), PAYNEST_FIX.configRollback()),
     fixesThatFailed: failed,
     eureka: `${f.name} change ${c.sha} at ${c.at?.slice(11, 16)}Z lines up exactly with the first 500s. it's config, not the image`,
     impact: `${fmtInt(rng.int(8000, 70000))} collect requests failed over ${rng.int(9, 40)} min.`,

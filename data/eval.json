@@ -86,7 +86,7 @@
       {
         "at": "01:11",
         "who": "Arjun Mehta",
-        "msg": "applying: raised redis-cache maxmemory 16GB → 24GB, added TTL jitter and singleflight on sess:* lookups"
+        "msg": "applying: ran runbook RB-CACHE-04: `pnctl cache harden sess:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`"
       },
       {
         "at": "01:15",
@@ -96,13 +96,13 @@
     ],
     "rootCause": "Salary-day midnight login surge (5x TPS) pushed redis-cache to maxmemory; sess:* keys were evicted and every miss fell through to user_sessions in postgres — a cache stampede / Redis eviction storm, not a database problem.",
     "family": "redis-eviction-storm",
-    "fixThatWorked": "raised redis-cache maxmemory 16GB → 24GB, added TTL jitter and singleflight on sess:* lookups",
+    "fixThatWorked": "ran runbook RB-CACHE-04: `pnctl cache harden sess:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`",
     "fixesThatFailed": [
       "added a read replica for user_sessions queries"
     ],
     "resolvedBy": "Arjun Mehta",
     "ttrMinutes": 41,
-    "postMortem": "Impact: Login p99 ~5s for 35 min for ~1.1L users. No internal change preceded it. Root cause: Salary-day midnight login surge (5x TPS) pushed redis-cache to maxmemory; sess:* keys were evicted and every miss fell through to user_sessions in postgres — a cache stampede / Redis eviction storm, not a database problem. Resolution: raised redis-cache maxmemory 16GB → 24GB, added TTL jitter and singleflight on sess:* lookups (by Arjun Mehta, TTR 41 min). What did NOT work: added a read replica for user_sessions queries (took 20 min to provision; misses kept hammering primary). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: Login p99 ~5s for 35 min for ~1.1L users. No internal change preceded it. Root cause: Salary-day midnight login surge (5x TPS) pushed redis-cache to maxmemory; sess:* keys were evicted and every miss fell through to user_sessions in postgres — a cache stampede / Redis eviction storm, not a database problem. Resolution: ran runbook RB-CACHE-04: `pnctl cache harden sess:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb` (by Arjun Mehta, TTR 41 min). What did NOT work: added a read replica for user_sessions queries (took 20 min to provision; misses kept hammering primary). Action items: Link this incident to its family runbook; Add a regression alert."
   },
   {
     "id": "INC-2369",
@@ -191,7 +191,7 @@
       {
         "at": "03:17",
         "who": "Priya Raman",
-        "msg": "applying: capped SQLAlchemy pool_size=5 / max_overflow=5 per worker via hotfix config and rolled payments-api"
+        "msg": "applying: ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api)"
       },
       {
         "at": "03:23",
@@ -201,13 +201,13 @@
     ],
     "rootCause": "Deploy doubled gunicorn workers (8→16) and threads; with 24 pods and pool_size 20 the potential DB connections far exceeded pgbouncer/postgres max_connections=600, so workers blocked 30s acquiring a DB connection and gunicorn killed them — DB connection pool exhaustion.",
     "family": "db-pool-exhaustion",
-    "fixThatWorked": "capped SQLAlchemy pool_size=5 / max_overflow=5 per worker via hotfix config and rolled payments-api",
+    "fixThatWorked": "ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api)",
     "fixesThatFailed": [
       "restarted payments-api pods"
     ],
     "resolvedBy": "Priya Raman",
     "ttrMinutes": 36,
-    "postMortem": "Impact: ~38k checkouts failed over 30 min. Trigger: payments-api deploy 'tune gunicorn for festive load': WORKERS 8 → 16, threads 2 → 4 (commit cabd556 by Rohan Gupta). Root cause: Deploy doubled gunicorn workers (8→16) and threads; with 24 pods and pool_size 20 the potential DB connections far exceeded pgbouncer/postgres max_connections=600, so workers blocked 30s acquiring a DB connection and gunicorn killed them — DB connection pool exhaustion. Resolution: capped SQLAlchemy pool_size=5 / max_overflow=5 per worker via hotfix config and rolled payments-api (by Priya Raman, TTR 36 min). What did NOT work: restarted payments-api pods (workers re-exhausted the pool within 3 minutes). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: ~38k checkouts failed over 30 min. Trigger: payments-api deploy 'tune gunicorn for festive load': WORKERS 8 → 16, threads 2 → 4 (commit cabd556 by Rohan Gupta). Root cause: Deploy doubled gunicorn workers (8→16) and threads; with 24 pods and pool_size 20 the potential DB connections far exceeded pgbouncer/postgres max_connections=600, so workers blocked 30s acquiring a DB connection and gunicorn killed them — DB connection pool exhaustion. Resolution: ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api) (by Priya Raman, TTR 36 min). What did NOT work: restarted payments-api pods (workers re-exhausted the pool within 3 minutes). Action items: Link this incident to its family runbook; Add a regression alert."
   },
   {
     "id": "INC-2371",
@@ -295,7 +295,7 @@
       {
         "at": "11:59",
         "who": "Rahul Verma",
-        "msg": "applying: opened circuit breaker for npci-axis, failed Axis routes over to NPCI-DC2, cut ReqPay timeout to 8s"
+        "msg": "applying: ran runbook RB-UPI-03: `pnctl upi failover --psp Axis --route npci-dc2` (opens the npci-axis breaker, routes Axis via NPCI-DC2, ReqPay timeout 8s)"
       },
       {
         "at": "12:04",
@@ -305,13 +305,13 @@
     ],
     "rootCause": "Axis Bank (UTIB) switch degraded behind NPCI; upi-gateway had no per-bank circuit breaker so 30s ReqPay timeouts saturated the shared npci-client pool and surfaced as 504s in payments-api. The flag push was a red herring.",
     "family": "npci-bank-timeout",
-    "fixThatWorked": "opened circuit breaker for npci-axis, failed Axis routes over to NPCI-DC2, cut ReqPay timeout to 8s",
+    "fixThatWorked": "ran runbook RB-UPI-03: `pnctl upi failover --psp Axis --route npci-dc2` (opens the npci-axis breaker, routes Axis via NPCI-DC2, ReqPay timeout 8s)",
     "fixesThatFailed": [
       "turned off enable_collect_retry_v2"
     ],
     "resolvedBy": "Rahul Verma",
     "ttrMinutes": 44,
-    "postMortem": "Impact: ~52k UPI collects failed or went DEEMED, mostly Axis customers. Trigger: Unleash flag enable_collect_retry_v2 rolled to 25% (commit 024ead1 by Meera Pillai). Root cause: Axis Bank (UTIB) switch degraded behind NPCI; upi-gateway had no per-bank circuit breaker so 30s ReqPay timeouts saturated the shared npci-client pool and surfaced as 504s in payments-api. The flag push was a red herring. Resolution: opened circuit breaker for npci-axis, failed Axis routes over to NPCI-DC2, cut ReqPay timeout to 8s (by Rahul Verma, TTR 44 min). What did NOT work: turned off enable_collect_retry_v2 (no change in 5xx; flag was unrelated). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: ~52k UPI collects failed or went DEEMED, mostly Axis customers. Trigger: Unleash flag enable_collect_retry_v2 rolled to 25% (commit 024ead1 by Meera Pillai). Root cause: Axis Bank (UTIB) switch degraded behind NPCI; upi-gateway had no per-bank circuit breaker so 30s ReqPay timeouts saturated the shared npci-client pool and surfaced as 504s in payments-api. The flag push was a red herring. Resolution: ran runbook RB-UPI-03: `pnctl upi failover --psp Axis --route npci-dc2` (opens the npci-axis breaker, routes Axis via NPCI-DC2, ReqPay timeout 8s) (by Rahul Verma, TTR 44 min). What did NOT work: turned off enable_collect_retry_v2 (no change in 5xx; flag was unrelated). Action items: Link this incident to its family runbook; Add a regression alert."
   },
   {
     "id": "INC-2376",
@@ -399,7 +399,7 @@
       {
         "at": "21:37",
         "who": "Sneha Kulkarni",
-        "msg": "applying: switched notif-worker to CooperativeStickyAssignor with static membership (group.instance.id) and rolled it once"
+        "msg": "applying: ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count)"
       },
       {
         "at": "21:44",
@@ -409,13 +409,13 @@
     ],
     "rootCause": "Kafka broker patch restarted kafka-1 (the group coordinator); notif-worker uses the eager assignor so the whole group went into a repeated partition rebalance and consumer lag on otp.events grew — OTP SMS delayed.",
     "family": "kafka-consumer-lag",
-    "fixThatWorked": "switched notif-worker to CooperativeStickyAssignor with static membership (group.instance.id) and rolled it once",
+    "fixThatWorked": "ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count)",
     "fixesThatFailed": [
       "failed over OTP SMS to backup SMS provider"
     ],
     "resolvedBy": "Sneha Kulkarni",
     "ttrMinutes": 39,
-    "postMortem": "Impact: OTP delays for ~40 min; 9k abandoned payments. Trigger: Kafka broker patch rollout (kafka-1 restarted, group coordinator moved) (commit fbede05 by Aditya Joshi). Root cause: Kafka broker patch restarted kafka-1 (the group coordinator); notif-worker uses the eager assignor so the whole group went into a repeated partition rebalance and consumer lag on otp.events grew — OTP SMS delayed. Resolution: switched notif-worker to CooperativeStickyAssignor with static membership (group.instance.id) and rolled it once (by Sneha Kulkarni, TTR 39 min). What did NOT work: failed over OTP SMS to backup SMS provider (provider was healthy; messages never left the queue). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: OTP delays for ~40 min; 9k abandoned payments. Trigger: Kafka broker patch rollout (kafka-1 restarted, group coordinator moved) (commit fbede05 by Aditya Joshi). Root cause: Kafka broker patch restarted kafka-1 (the group coordinator); notif-worker uses the eager assignor so the whole group went into a repeated partition rebalance and consumer lag on otp.events grew — OTP SMS delayed. Resolution: ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count) (by Sneha Kulkarni, TTR 39 min). What did NOT work: failed over OTP SMS to backup SMS provider (provider was healthy; messages never left the queue). Action items: Link this incident to its family runbook; Add a regression alert."
   },
   {
     "id": "INC-2380",
@@ -502,7 +502,7 @@
       {
         "at": "03:43",
         "who": "Fatima Sheikh",
-        "msg": "applying: forced ExternalSecret resync and rolling restart of ledger-svc"
+        "msg": "applying: ran runbook RB-SEC-02: `pnctl secrets resync ledger-svc` (forces the ExternalSecret sync of the rotated Vault creds and rolls ledger-svc)"
       },
       {
         "at": "03:43",
@@ -512,13 +512,13 @@
     ],
     "rootCause": "Vault rotated ledger-svc's dynamic postgres credentials; the ExternalSecret did not resync so pods kept the expired lease and every new connection failed authentication. Looks like pool exhaustion, but it is a rotated secret.",
     "family": "tls-secret-expiry",
-    "fixThatWorked": "forced ExternalSecret resync and rolling restart of ledger-svc",
+    "fixThatWorked": "ran runbook RB-SEC-02: `pnctl secrets resync ledger-svc` (forces the ExternalSecret sync of the rotated Vault creds and rolls ledger-svc)",
     "fixesThatFailed": [
       "raised Hikari maximumPoolSize to 60"
     ],
     "resolvedBy": "Fatima Sheikh",
     "ttrMinutes": 33,
-    "postMortem": "Impact: Recon delayed 50 min; no customer impact. Trigger: Vault dynamic DB credentials for ledger-svc rotated on schedule (commit e3cae1a by vault-operator). Root cause: Vault rotated ledger-svc's dynamic postgres credentials; the ExternalSecret did not resync so pods kept the expired lease and every new connection failed authentication. Looks like pool exhaustion, but it is a rotated secret. Resolution: forced ExternalSecret resync and rolling restart of ledger-svc (by Fatima Sheikh, TTR 33 min). What did NOT work: raised Hikari maximumPoolSize to 60 (connections still failed auth; more failures per second). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: Recon delayed 50 min; no customer impact. Trigger: Vault dynamic DB credentials for ledger-svc rotated on schedule (commit e3cae1a by vault-operator). Root cause: Vault rotated ledger-svc's dynamic postgres credentials; the ExternalSecret did not resync so pods kept the expired lease and every new connection failed authentication. Looks like pool exhaustion, but it is a rotated secret. Resolution: ran runbook RB-SEC-02: `pnctl secrets resync ledger-svc` (forces the ExternalSecret sync of the rotated Vault creds and rolls ledger-svc) (by Fatima Sheikh, TTR 33 min). What did NOT work: raised Hikari maximumPoolSize to 60 (connections still failed auth; more failures per second). Action items: Link this incident to its family runbook; Add a regression alert."
   },
   {
     "id": "INC-2384",
@@ -586,7 +586,7 @@
       {
         "at": "14:12",
         "who": "Karthik Iyer",
-        "msg": "applying: reverted payments-api-config to previous revision via ArgoCD and reloaded"
+        "msg": "applying: ran runbook RB-REL-02: `pnctl config rollback payments-api-config` (kubectl rollout undo does not revert ConfigMaps)"
       },
       {
         "at": "14:16",
@@ -596,11 +596,11 @@
     ],
     "rootCause": "Config push set PAYOUT_BATCH_SIZE='5k' (string) in payments-api-config; payout handler failed to parse it and every payout request 500'd.",
     "family": "bad-config-push",
-    "fixThatWorked": "reverted payments-api-config to previous revision via ArgoCD and reloaded",
+    "fixThatWorked": "ran runbook RB-REL-02: `pnctl config rollback payments-api-config` (kubectl rollout undo does not revert ConfigMaps)",
     "fixesThatFailed": [],
     "resolvedBy": "Karthik Iyer",
     "ttrMinutes": 14,
-    "postMortem": "Impact: Merchant payouts delayed 14 min. Trigger: payments-api-config ConfigMap: PAYOUT_BATCH_SIZE changed to '5k' (commit d5f7bfb by Vikram Nair). Root cause: Config push set PAYOUT_BATCH_SIZE='5k' (string) in payments-api-config; payout handler failed to parse it and every payout request 500'd. Resolution: reverted payments-api-config to previous revision via ArgoCD and reloaded (by Karthik Iyer, TTR 14 min). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: Merchant payouts delayed 14 min. Trigger: payments-api-config ConfigMap: PAYOUT_BATCH_SIZE changed to '5k' (commit d5f7bfb by Vikram Nair). Root cause: Config push set PAYOUT_BATCH_SIZE='5k' (string) in payments-api-config; payout handler failed to parse it and every payout request 500'd. Resolution: ran runbook RB-REL-02: `pnctl config rollback payments-api-config` (kubectl rollout undo does not revert ConfigMaps) (by Karthik Iyer, TTR 14 min). Action items: Link this incident to its family runbook; Add a regression alert."
   },
   {
     "id": "INC-2387",
@@ -688,7 +688,7 @@
       {
         "at": "20:55",
         "who": "Arjun Mehta",
-        "msg": "applying: scaled redis-cache to 6 shards, enabled stale-while-revalidate on merchant:cfg:*"
+        "msg": "applying: ran runbook RB-CACHE-04: `pnctl cache harden merchant:cfg:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`"
       },
       {
         "at": "21:02",
@@ -698,13 +698,13 @@
     ],
     "rootCause": "Festive-sale peak pushed redis-cache to maxmemory; merchant:cfg:* keys were evicted and the resulting cache stampede flooded postgres with merchant_config reads, which is what exhausted the DB pool. The pool errors are a symptom; the root cause is the Redis eviction storm.",
     "family": "redis-eviction-storm",
-    "fixThatWorked": "scaled redis-cache to 6 shards, enabled stale-while-revalidate on merchant:cfg:*",
+    "fixThatWorked": "ran runbook RB-CACHE-04: `pnctl cache harden merchant:cfg:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`",
     "fixesThatFailed": [
       "raised payments-api pool_size to 40"
     ],
     "resolvedBy": "Arjun Mehta",
     "ttrMinutes": 47,
-    "postMortem": "Impact: p99 ~6s for 45 min at sale peak; ~₹11 Cr GMV delayed. No internal change preceded it. Root cause: Festive-sale peak pushed redis-cache to maxmemory; merchant:cfg:* keys were evicted and the resulting cache stampede flooded postgres with merchant_config reads, which is what exhausted the DB pool. The pool errors are a symptom; the root cause is the Redis eviction storm. Resolution: scaled redis-cache to 6 shards, enabled stale-while-revalidate on merchant:cfg:* (by Arjun Mehta, TTR 47 min). What did NOT work: raised payments-api pool_size to 40 (postgres CPU hit 100%; more concurrent misses). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: p99 ~6s for 45 min at sale peak; ~₹11 Cr GMV delayed. No internal change preceded it. Root cause: Festive-sale peak pushed redis-cache to maxmemory; merchant:cfg:* keys were evicted and the resulting cache stampede flooded postgres with merchant_config reads, which is what exhausted the DB pool. The pool errors are a symptom; the root cause is the Redis eviction storm. Resolution: ran runbook RB-CACHE-04: `pnctl cache harden merchant:cfg:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb` (by Arjun Mehta, TTR 47 min). What did NOT work: raised payments-api pool_size to 40 (postgres CPU hit 100%; more concurrent misses). Action items: Link this incident to its family runbook; Add a regression alert."
   },
   {
     "id": "INC-2390",
@@ -791,7 +791,7 @@
       {
         "at": "10:09",
         "who": "Fatima Sheikh",
-        "msg": "applying: enabled per-bank circuit breaker for npci-icici and routed ICICI via NPCI-DC2"
+        "msg": "applying: ran runbook RB-UPI-03: `pnctl upi failover --psp ICICI --route npci-dc2` (opens the npci-icici breaker, routes ICICI via NPCI-DC2, ReqPay timeout 8s)"
       },
       {
         "at": "10:18",
@@ -801,13 +801,13 @@
     ],
     "rootCause": "ICICI remitter bank degraded at NPCI; ReqPay acks slowed to ~24s and RespPay never arrived. No per-bank circuit breaker so the shared npci-client pool neared saturation.",
     "family": "npci-bank-timeout",
-    "fixThatWorked": "enabled per-bank circuit breaker for npci-icici and routed ICICI via NPCI-DC2",
+    "fixThatWorked": "ran runbook RB-UPI-03: `pnctl upi failover --psp ICICI --route npci-dc2` (opens the npci-icici breaker, routes ICICI via NPCI-DC2, ReqPay timeout 8s)",
     "fixesThatFailed": [
       "restarted upi-gateway pods"
     ],
     "resolvedBy": "Fatima Sheikh",
     "ttrMinutes": 38,
-    "postMortem": "Impact: ~24k collects expired. No internal change preceded it. Root cause: ICICI remitter bank degraded at NPCI; ReqPay acks slowed to ~24s and RespPay never arrived. No per-bank circuit breaker so the shared npci-client pool neared saturation. Resolution: enabled per-bank circuit breaker for npci-icici and routed ICICI via NPCI-DC2 (by Fatima Sheikh, TTR 38 min). What did NOT work: restarted upi-gateway pods (external cause; expiries continued). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: ~24k collects expired. No internal change preceded it. Root cause: ICICI remitter bank degraded at NPCI; ReqPay acks slowed to ~24s and RespPay never arrived. No per-bank circuit breaker so the shared npci-client pool neared saturation. Resolution: ran runbook RB-UPI-03: `pnctl upi failover --psp ICICI --route npci-dc2` (opens the npci-icici breaker, routes ICICI via NPCI-DC2, ReqPay timeout 8s) (by Fatima Sheikh, TTR 38 min). What did NOT work: restarted upi-gateway pods (external cause; expiries continued). Action items: Link this incident to its family runbook; Add a regression alert."
   },
   {
     "id": "INC-2394",
@@ -893,7 +893,7 @@
       {
         "at": "00:35",
         "who": "Fatima Sheikh",
-        "msg": "applying: forced JWKS reload on auth-svc (POST /admin/jwks/reload) and set JWKS cache TTL to 5 min"
+        "msg": "applying: ran runbook RB-SEC-03: `pnctl auth jwks-reload` on auth-svc (and set JWKS cache TTL to 5 min)"
       },
       {
         "at": "00:35",
@@ -903,13 +903,13 @@
     ],
     "rootCause": "Vault rotated the JWT signing key at midnight; auth-svc kept a 24h cached JWKS without the new kid so every freshly-signed token failed verification.",
     "family": "tls-secret-expiry",
-    "fixThatWorked": "forced JWKS reload on auth-svc (POST /admin/jwks/reload) and set JWKS cache TTL to 5 min",
+    "fixThatWorked": "ran runbook RB-SEC-03: `pnctl auth jwks-reload` on auth-svc (and set JWKS cache TTL to 5 min)",
     "fixesThatFailed": [
       "rolled back auth-svc deploy from the afternoon"
     ],
     "resolvedBy": "Fatima Sheikh",
     "ttrMinutes": 27,
-    "postMortem": "Impact: Merchant API calls failing for 25 min. Trigger: Scheduled Vault rotation of the JWT signing key at 00:00 (commit 9bc0fa1 by vault-operator). Root cause: Vault rotated the JWT signing key at midnight; auth-svc kept a 24h cached JWKS without the new kid so every freshly-signed token failed verification. Resolution: forced JWKS reload on auth-svc (POST /admin/jwks/reload) and set JWKS cache TTL to 5 min (by Fatima Sheikh, TTR 27 min). What did NOT work: rolled back auth-svc deploy from the afternoon (no effect — key cache, not code). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: Merchant API calls failing for 25 min. Trigger: Scheduled Vault rotation of the JWT signing key at 00:00 (commit 9bc0fa1 by vault-operator). Root cause: Vault rotated the JWT signing key at midnight; auth-svc kept a 24h cached JWKS without the new kid so every freshly-signed token failed verification. Resolution: ran runbook RB-SEC-03: `pnctl auth jwks-reload` on auth-svc (and set JWKS cache TTL to 5 min) (by Fatima Sheikh, TTR 27 min). What did NOT work: rolled back auth-svc deploy from the afternoon (no effect — key cache, not code). Action items: Link this incident to its family runbook; Add a regression alert."
   },
   {
     "id": "INC-2399",
@@ -995,7 +995,7 @@
       {
         "at": "16:57",
         "who": "Priya Raman",
-        "msg": "applying: rolled back to maximumPoolSize=20 and put ledger-svc behind pgbouncer transaction pooling"
+        "msg": "applying: ran runbook RB-PG-07: `pnctl db pool-cap ledger-svc --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls ledger-svc)"
       },
       {
         "at": "17:01",
@@ -1005,13 +1005,13 @@
     ],
     "rootCause": "Deploy raised Hikari maximumPoolSize to 80 and replicas to 10 (800 potential connections) against postgres max_connections=600, starving every other service and exhausting the pool.",
     "family": "db-pool-exhaustion",
-    "fixThatWorked": "rolled back to maximumPoolSize=20 and put ledger-svc behind pgbouncer transaction pooling",
+    "fixThatWorked": "ran runbook RB-PG-07: `pnctl db pool-cap ledger-svc --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls ledger-svc)",
     "fixesThatFailed": [
       "restarted ledger-svc pods"
     ],
     "resolvedBy": "Priya Raman",
     "ttrMinutes": 31,
-    "postMortem": "Impact: Ledger postings delayed 30 min. Trigger: ledger-svc 'parallel settlement': Hikari maximumPoolSize 20 → 80, replicas 6 → 10 (commit ec737ed by Ananya Das). Root cause: Deploy raised Hikari maximumPoolSize to 80 and replicas to 10 (800 potential connections) against postgres max_connections=600, starving every other service and exhausting the pool. Resolution: rolled back to maximumPoolSize=20 and put ledger-svc behind pgbouncer transaction pooling (by Priya Raman, TTR 31 min). What did NOT work: restarted ledger-svc pods (pool re-filled immediately). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: Ledger postings delayed 30 min. Trigger: ledger-svc 'parallel settlement': Hikari maximumPoolSize 20 → 80, replicas 6 → 10 (commit ec737ed by Ananya Das). Root cause: Deploy raised Hikari maximumPoolSize to 80 and replicas to 10 (800 potential connections) against postgres max_connections=600, starving every other service and exhausting the pool. Resolution: ran runbook RB-PG-07: `pnctl db pool-cap ledger-svc --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls ledger-svc) (by Priya Raman, TTR 31 min). What did NOT work: restarted ledger-svc pods (pool re-filled immediately). Action items: Link this incident to its family runbook; Add a regression alert."
   },
   {
     "id": "INC-2404",
@@ -1078,7 +1078,7 @@
       {
         "at": "20:23",
         "who": "Karthik Iyer",
-        "msg": "applying: enabled CooperativeStickyAssignor + static membership and scaled notif-worker to 24 replicas"
+        "msg": "applying: ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count)"
       },
       {
         "at": "20:30",
@@ -1088,11 +1088,11 @@
     ],
     "rootCause": "Partition increase on payment.events triggered a full eager rebalance of notif-worker; repeated revocations and failed commits left lag growing.",
     "family": "kafka-consumer-lag",
-    "fixThatWorked": "enabled CooperativeStickyAssignor + static membership and scaled notif-worker to 24 replicas",
+    "fixThatWorked": "ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count)",
     "fixesThatFailed": [],
     "resolvedBy": "Karthik Iyer",
     "ttrMinutes": 35,
-    "postMortem": "Impact: Push delays up to 15 min. Trigger: payment.events partitions increased 24 → 48 (commit ce02c5c by Aditya Joshi). Root cause: Partition increase on payment.events triggered a full eager rebalance of notif-worker; repeated revocations and failed commits left lag growing. Resolution: enabled CooperativeStickyAssignor + static membership and scaled notif-worker to 24 replicas (by Karthik Iyer, TTR 35 min). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: Push delays up to 15 min. Trigger: payment.events partitions increased 24 → 48 (commit ce02c5c by Aditya Joshi). Root cause: Partition increase on payment.events triggered a full eager rebalance of notif-worker; repeated revocations and failed commits left lag growing. Resolution: ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count) (by Karthik Iyer, TTR 35 min). Action items: Link this incident to its family runbook; Add a regression alert."
   },
   {
     "id": "INC-2409",
@@ -1179,7 +1179,7 @@
       {
         "at": "12:34",
         "who": "Rahul Verma",
-        "msg": "applying: reverted payments-api-config ratelimit.max_rps to 5000 via ArgoCD"
+        "msg": "applying: ran runbook RB-REL-02: `pnctl config rollback payments-api-config` (kubectl rollout undo does not revert ConfigMaps)"
       },
       {
         "at": "12:32",
@@ -1189,13 +1189,13 @@
     ],
     "rootCause": "Config push set ratelimit.max_rps=50 (typo for 5000); traffic was normal for the festival but almost all requests were throttled.",
     "family": "bad-config-push",
-    "fixThatWorked": "reverted payments-api-config ratelimit.max_rps to 5000 via ArgoCD",
+    "fixThatWorked": "ran runbook RB-REL-02: `pnctl config rollback payments-api-config` (kubectl rollout undo does not revert ConfigMaps)",
     "fixesThatFailed": [
       "scaled payments-api out 2x to absorb the 'surge'"
     ],
     "resolvedBy": "Rahul Verma",
     "ttrMinutes": 22,
-    "postMortem": "Impact: 62% of merchant API calls throttled for 20 min. Trigger: payments-api-config: ratelimit.max_rps updated (commit 538abee by Rohan Gupta). Root cause: Config push set ratelimit.max_rps=50 (typo for 5000); traffic was normal for the festival but almost all requests were throttled. Resolution: reverted payments-api-config ratelimit.max_rps to 5000 via ArgoCD (by Rahul Verma, TTR 22 min). What did NOT work: scaled payments-api out 2x to absorb the 'surge' (limit is per-merchant config; more pods, same 429s). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: 62% of merchant API calls throttled for 20 min. Trigger: payments-api-config: ratelimit.max_rps updated (commit 538abee by Rohan Gupta). Root cause: Config push set ratelimit.max_rps=50 (typo for 5000); traffic was normal for the festival but almost all requests were throttled. Resolution: ran runbook RB-REL-02: `pnctl config rollback payments-api-config` (kubectl rollout undo does not revert ConfigMaps) (by Rahul Verma, TTR 22 min). What did NOT work: scaled payments-api out 2x to absorb the 'surge' (limit is per-merchant config; more pods, same 429s). Action items: Link this incident to its family runbook; Add a regression alert."
   },
   {
     "id": "INC-2411",
@@ -1292,7 +1292,7 @@
       {
         "at": "11:10",
         "who": "Rahul Verma",
-        "msg": "applying: opened npci-sbi circuit breaker, failed SBI over to NPCI-DC2, timeout 30s → 8s"
+        "msg": "applying: ran runbook RB-UPI-03: `pnctl upi failover --psp SBI --route npci-dc2` (opens the npci-sbi breaker, routes SBI via NPCI-DC2, ReqPay timeout 8s)"
       },
       {
         "at": "11:17",
@@ -1302,14 +1302,14 @@
     ],
     "rootCause": "SBI switch degraded at NPCI; 30s ReqPay timeouts filled the npci-client queue with in-flight requests, which drove heap to 96% and long GC pauses. GC was a symptom of the external bank timeout, not a memory leak.",
     "family": "npci-bank-timeout",
-    "fixThatWorked": "opened npci-sbi circuit breaker, failed SBI over to NPCI-DC2, timeout 30s → 8s",
+    "fixThatWorked": "ran runbook RB-UPI-03: `pnctl upi failover --psp SBI --route npci-dc2` (opens the npci-sbi breaker, routes SBI via NPCI-DC2, ReqPay timeout 8s)",
     "fixesThatFailed": [
       "increased upi-gateway heap from 4G to 8G",
       "rolled back logging library bump"
     ],
     "resolvedBy": "Rahul Verma",
     "ttrMinutes": 52,
-    "postMortem": "Impact: ~70k UPI txns slow/failed, SBI heaviest. Trigger: upi-gateway deploy: logging library bump (commit 63a37ee by Vikram Nair). Root cause: SBI switch degraded at NPCI; 30s ReqPay timeouts filled the npci-client queue with in-flight requests, which drove heap to 96% and long GC pauses. GC was a symptom of the external bank timeout, not a memory leak. Resolution: opened npci-sbi circuit breaker, failed SBI over to NPCI-DC2, timeout 30s → 8s (by Rahul Verma, TTR 52 min). What did NOT work: increased upi-gateway heap from 4G to 8G (queue kept growing; GC pauses returned); rolled back logging library bump (no change). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: ~70k UPI txns slow/failed, SBI heaviest. Trigger: upi-gateway deploy: logging library bump (commit 63a37ee by Vikram Nair). Root cause: SBI switch degraded at NPCI; 30s ReqPay timeouts filled the npci-client queue with in-flight requests, which drove heap to 96% and long GC pauses. GC was a symptom of the external bank timeout, not a memory leak. Resolution: ran runbook RB-UPI-03: `pnctl upi failover --psp SBI --route npci-dc2` (opens the npci-sbi breaker, routes SBI via NPCI-DC2, ReqPay timeout 8s) (by Rahul Verma, TTR 52 min). What did NOT work: increased upi-gateway heap from 4G to 8G (queue kept growing; GC pauses returned); rolled back logging library bump (no change). Action items: Link this incident to its family runbook; Add a regression alert."
   },
   {
     "id": "INC-2416",
@@ -1396,7 +1396,7 @@
       {
         "at": "19:19",
         "who": "Sneha Kulkarni",
-        "msg": "applying: rolled back to caching account refs only and raised redis maxmemory to 24GB"
+        "msg": "applying: ran runbook RB-CACHE-04: `pnctl cache harden vpa:resolve:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`"
       },
       {
         "at": "19:23",
@@ -1406,13 +1406,13 @@
     ],
     "rootCause": "Deploy started caching full VPA profiles (~38KB each); combined with Dussehra evening peak redis-cache hit maxmemory and evicted hot vpa:resolve:* keys → stampede onto vpa_registry.",
     "family": "redis-eviction-storm",
-    "fixThatWorked": "rolled back to caching account refs only and raised redis maxmemory to 24GB",
+    "fixThatWorked": "ran runbook RB-CACHE-04: `pnctl cache harden vpa:resolve:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`",
     "fixesThatFailed": [
       "FLUSHALL on redis-cache"
     ],
     "resolvedBy": "Sneha Kulkarni",
     "ttrMinutes": 43,
-    "postMortem": "Impact: VPA resolve slow for 40 min. Trigger: upi-gateway deploy: cache full VPA profile incl. KYC blob (~38KB) instead of account ref (commit d007710 by Meera Pillai). Root cause: Deploy started caching full VPA profiles (~38KB each); combined with Dussehra evening peak redis-cache hit maxmemory and evicted hot vpa:resolve:* keys → stampede onto vpa_registry. Resolution: rolled back to caching account refs only and raised redis maxmemory to 24GB (by Sneha Kulkarni, TTR 43 min). What did NOT work: FLUSHALL on redis-cache (cold cache doubled DB load). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: VPA resolve slow for 40 min. Trigger: upi-gateway deploy: cache full VPA profile incl. KYC blob (~38KB) instead of account ref (commit d007710 by Meera Pillai). Root cause: Deploy started caching full VPA profiles (~38KB each); combined with Dussehra evening peak redis-cache hit maxmemory and evicted hot vpa:resolve:* keys → stampede onto vpa_registry. Resolution: ran runbook RB-CACHE-04: `pnctl cache harden vpa:resolve:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb` (by Sneha Kulkarni, TTR 43 min). What did NOT work: FLUSHALL on redis-cache (cold cache doubled DB load). Action items: Link this incident to its family runbook; Add a regression alert."
   },
   {
     "id": "INC-2420",
@@ -1488,7 +1488,7 @@
       {
         "at": "07:27",
         "who": "Arjun Mehta",
-        "msg": "applying: restored Route53 IAM permission and ran `cmctl renew api-paynest-in`"
+        "msg": "applying: ran runbook RB-SEC-01: restored the cert-manager Route53 IAM role, then `pnctl certs renew api.paynest.in`"
       },
       {
         "at": "07:34",
@@ -1498,13 +1498,13 @@
     ],
     "rootCause": "cert-manager failed to renew the api.paynest.in certificate (DNS-01 challenge denied after IAM change); the cert expired at 07:00.",
     "family": "tls-secret-expiry",
-    "fixThatWorked": "restored Route53 IAM permission and ran `cmctl renew api-paynest-in`",
+    "fixThatWorked": "ran runbook RB-SEC-01: restored the cert-manager Route53 IAM role, then `pnctl certs renew api.paynest.in`",
     "fixesThatFailed": [
       "restarted ingress controllers"
     ],
     "resolvedBy": "Arjun Mehta",
     "ttrMinutes": 29,
-    "postMortem": "Impact: Partner callbacks failed 29 min; reconciled later. No internal change preceded it. Root cause: cert-manager failed to renew the api.paynest.in certificate (DNS-01 challenge denied after IAM change); the cert expired at 07:00. Resolution: restored Route53 IAM permission and ran `cmctl renew api-paynest-in` (by Arjun Mehta, TTR 29 min). What did NOT work: restarted ingress controllers (same expired cert served). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: Partner callbacks failed 29 min; reconciled later. No internal change preceded it. Root cause: cert-manager failed to renew the api.paynest.in certificate (DNS-01 challenge denied after IAM change); the cert expired at 07:00. Resolution: ran runbook RB-SEC-01: restored the cert-manager Route53 IAM role, then `pnctl certs renew api.paynest.in` (by Arjun Mehta, TTR 29 min). What did NOT work: restarted ingress controllers (same expired cert served). Action items: Link this incident to its family runbook; Add a regression alert."
   },
   {
     "id": "INC-2422",
@@ -1591,7 +1591,7 @@
       {
         "at": "22:01",
         "who": "Priya Raman",
-        "msg": "applying: capped pool_size to 5 per worker and set HPA maxReplicas back to 24"
+        "msg": "applying: ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api)"
       },
       {
         "at": "21:58",
@@ -1601,13 +1601,13 @@
     ],
     "rootCause": "HPA maxReplicas raised to 40; as payments-api scaled to 36 pods each holding pool_size 20, connections exceeded pgbouncer max_client_conn/postgres max_connections — DB pool exhaustion.",
     "family": "db-pool-exhaustion",
-    "fixThatWorked": "capped pool_size to 5 per worker and set HPA maxReplicas back to 24",
+    "fixThatWorked": "ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api)",
     "fixesThatFailed": [
       "scaled payments-api further"
     ],
     "resolvedBy": "Priya Raman",
     "ttrMinutes": 28,
-    "postMortem": "Impact: ~21k collects failed. Trigger: payments-api HPA maxReplicas 18 → 40 for festive season (commit 262a2c8 by Karthik Iyer). Root cause: HPA maxReplicas raised to 40; as payments-api scaled to 36 pods each holding pool_size 20, connections exceeded pgbouncer max_client_conn/postgres max_connections — DB pool exhaustion. Resolution: capped pool_size to 5 per worker and set HPA maxReplicas back to 24 (by Priya Raman, TTR 28 min). What did NOT work: scaled payments-api further (made it worse — more connections). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: ~21k collects failed. Trigger: payments-api HPA maxReplicas 18 → 40 for festive season (commit 262a2c8 by Karthik Iyer). Root cause: HPA maxReplicas raised to 40; as payments-api scaled to 36 pods each holding pool_size 20, connections exceeded pgbouncer max_client_conn/postgres max_connections — DB pool exhaustion. Resolution: ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api) (by Priya Raman, TTR 28 min). What did NOT work: scaled payments-api further (made it worse — more connections). Action items: Link this incident to its family runbook; Add a regression alert."
   },
   {
     "id": "INC-2427",
@@ -1694,7 +1694,7 @@
       {
         "at": "13:57",
         "who": "Sneha Kulkarni",
-        "msg": "applying: reverted max.poll.records to 500 and enabled static membership"
+        "msg": "applying: ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count)"
       },
       {
         "at": "14:01",
@@ -1704,13 +1704,13 @@
     ],
     "rootCause": "notif-worker deploy raised max.poll.records to 5000 while SMS calls are synchronous; batches exceeded max.poll.interval.ms, consumers were evicted and the group looped on rebalances — consumer lag, not an SMS provider outage.",
     "family": "kafka-consumer-lag",
-    "fixThatWorked": "reverted max.poll.records to 500 and enabled static membership",
+    "fixThatWorked": "ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count)",
     "fixesThatFailed": [
       "switched to backup SMS provider"
     ],
     "resolvedBy": "Sneha Kulkarni",
     "ttrMinutes": 46,
-    "postMortem": "Impact: 3L debit SMS delayed up to 50 min. Trigger: notif-worker deploy: SMS provider SDK v3 + max.poll.records 500 → 5000 (commit bb8da86 by Ananya Das). Root cause: notif-worker deploy raised max.poll.records to 5000 while SMS calls are synchronous; batches exceeded max.poll.interval.ms, consumers were evicted and the group looped on rebalances — consumer lag, not an SMS provider outage. Resolution: reverted max.poll.records to 500 and enabled static membership (by Sneha Kulkarni, TTR 46 min). What did NOT work: switched to backup SMS provider (provider was not the bottleneck). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: 3L debit SMS delayed up to 50 min. Trigger: notif-worker deploy: SMS provider SDK v3 + max.poll.records 500 → 5000 (commit bb8da86 by Ananya Das). Root cause: notif-worker deploy raised max.poll.records to 5000 while SMS calls are synchronous; batches exceeded max.poll.interval.ms, consumers were evicted and the group looped on rebalances — consumer lag, not an SMS provider outage. Resolution: ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count) (by Sneha Kulkarni, TTR 46 min). What did NOT work: switched to backup SMS provider (provider was not the bottleneck). Action items: Link this incident to its family runbook; Add a regression alert."
   },
   {
     "id": "INC-2430",
@@ -1796,7 +1796,7 @@
       {
         "at": "18:12",
         "who": "Karthik Iyer",
-        "msg": "applying: turned off refund_via_ledger_v2 in Unleash"
+        "msg": "applying: ran runbook RB-REL-01: `pnctl flags kill refund_via_ledger_v2` (Unleash kill switch); 5xx back to baseline within 90s"
       },
       {
         "at": "18:04",
@@ -1806,13 +1806,13 @@
     ],
     "rootCause": "Flag refund_via_ledger_v2 was flipped to 100% before ledger-svc v2 refunds endpoint was deployed; all refunds hit a non-existent route.",
     "family": "bad-config-push",
-    "fixThatWorked": "turned off refund_via_ledger_v2 in Unleash",
+    "fixThatWorked": "ran runbook RB-REL-01: `pnctl flags kill refund_via_ledger_v2` (Unleash kill switch); 5xx back to baseline within 90s",
     "fixesThatFailed": [
       "restarted ledger-svc"
     ],
     "resolvedBy": "Karthik Iyer",
     "ttrMinutes": 19,
-    "postMortem": "Impact: Refunds blocked 19 min. Trigger: Unleash flag refund_via_ledger_v2 enabled (commit 20c2858 by Meera Pillai). Root cause: Flag refund_via_ledger_v2 was flipped to 100% before ledger-svc v2 refunds endpoint was deployed; all refunds hit a non-existent route. Resolution: turned off refund_via_ledger_v2 in Unleash (by Karthik Iyer, TTR 19 min). What did NOT work: restarted ledger-svc (the v2 route doesn't exist yet). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: Refunds blocked 19 min. Trigger: Unleash flag refund_via_ledger_v2 enabled (commit 20c2858 by Meera Pillai). Root cause: Flag refund_via_ledger_v2 was flipped to 100% before ledger-svc v2 refunds endpoint was deployed; all refunds hit a non-existent route. Resolution: ran runbook RB-REL-01: `pnctl flags kill refund_via_ledger_v2` (Unleash kill switch); 5xx back to baseline within 90s (by Karthik Iyer, TTR 19 min). What did NOT work: restarted ledger-svc (the v2 route doesn't exist yet). Action items: Link this incident to its family runbook; Add a regression alert."
   },
   {
     "id": "INC-2435",
@@ -1899,7 +1899,7 @@
       {
         "at": "00:15",
         "who": "Fatima Sheikh",
-        "msg": "applying: issued new NPCI mTLS client cert from Vault PKI, updated secret, reloaded upi-gateway"
+        "msg": "applying: ran runbook RB-SEC-04: `pnctl certs issue npci-client` (new NPCI mTLS client cert from Vault PKI) and reloaded upi-gateway"
       },
       {
         "at": "00:14",
@@ -1909,13 +1909,13 @@
     ],
     "rootCause": "PayNest's mTLS client certificate for NPCI expired at 23:45; NPCI rejected every handshake so all banks failed. Not an NPCI outage.",
     "family": "tls-secret-expiry",
-    "fixThatWorked": "issued new NPCI mTLS client cert from Vault PKI, updated secret, reloaded upi-gateway",
+    "fixThatWorked": "ran runbook RB-SEC-04: `pnctl certs issue npci-client` (new NPCI mTLS client cert from Vault PKI) and reloaded upi-gateway",
     "fixesThatFailed": [
       "failed over to NPCI-DC2"
     ],
     "resolvedBy": "Fatima Sheikh",
     "ttrMinutes": 24,
-    "postMortem": "Impact: Near-total UPI outage for 24 min. No internal change preceded it. Root cause: PayNest's mTLS client certificate for NPCI expired at 23:45; NPCI rejected every handshake so all banks failed. Not an NPCI outage. Resolution: issued new NPCI mTLS client cert from Vault PKI, updated secret, reloaded upi-gateway (by Fatima Sheikh, TTR 24 min). What did NOT work: failed over to NPCI-DC2 (same client cert rejected there too). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: Near-total UPI outage for 24 min. No internal change preceded it. Root cause: PayNest's mTLS client certificate for NPCI expired at 23:45; NPCI rejected every handshake so all banks failed. Not an NPCI outage. Resolution: ran runbook RB-SEC-04: `pnctl certs issue npci-client` (new NPCI mTLS client cert from Vault PKI) and reloaded upi-gateway (by Fatima Sheikh, TTR 24 min). What did NOT work: failed over to NPCI-DC2 (same client cert rejected there too). Action items: Link this incident to its family runbook; Add a regression alert."
   },
   {
     "id": "INC-2439",
@@ -2002,7 +2002,7 @@
       {
         "at": "02:39",
         "who": "Priya Raman",
-        "msg": "applying: moved settlement-report to its own small pool (size 2) and set idle_in_transaction_session_timeout=60s"
+        "msg": "applying: ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api)"
       },
       {
         "at": "02:44",
@@ -2012,12 +2012,12 @@
     ],
     "rootCause": "New settlement-report background threads held DB connections in long idle-in-transaction sessions, exhausting the shared request pool so readiness checks timed out.",
     "family": "db-pool-exhaustion",
-    "fixThatWorked": "moved settlement-report to its own small pool (size 2) and set idle_in_transaction_session_timeout=60s",
+    "fixThatWorked": "ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api)",
     "fixesThatFailed": [
       "restarted payments-api pods"
     ],
     "resolvedBy": "Priya Raman",
     "ttrMinutes": 34,
-    "postMortem": "Impact: Intermittent 503s for 30 min. Trigger: payments-api deploy: nightly settlement-report background threads share the request pool (commit 37b4b25 by Rohan Gupta). Root cause: New settlement-report background threads held DB connections in long idle-in-transaction sessions, exhausting the shared request pool so readiness checks timed out. Resolution: moved settlement-report to its own small pool (size 2) and set idle_in_transaction_session_timeout=60s (by Priya Raman, TTR 34 min). What did NOT work: restarted payments-api pods (pool exhausted again at the next report run). Action items: Link this incident to its family runbook; Add a regression alert."
+    "postMortem": "Impact: Intermittent 503s for 30 min. Trigger: payments-api deploy: nightly settlement-report background threads share the request pool (commit 37b4b25 by Rohan Gupta). Root cause: New settlement-report background threads held DB connections in long idle-in-transaction sessions, exhausting the shared request pool so readiness checks timed out. Resolution: ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api) (by Priya Raman, TTR 34 min). What did NOT work: restarted payments-api pods (pool exhausted again at the next report run). Action items: Link this incident to its family runbook; Add a regression alert."
   }
 ]

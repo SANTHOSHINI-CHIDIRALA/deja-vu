@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ColdStartCharts } from "@/components/ColdStartCharts";
+import { ColdStartCharts, FixCharts } from "@/components/ColdStartCharts";
 import { LearningChart } from "@/components/LearningChart";
 import { SERIES } from "@/lib/chart-colors";
 import { FamilyChip } from "@/components/ui";
@@ -27,8 +27,8 @@ export default function LearningPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Learning curve</h1>
         <p className="max-w-3xl text-sm text-ink-400">
-          Both agents see only the alert, logs and recent change; an LLM judge checks whether the top hypothesis names the right failure family.
-          The memory-OFF agent is the same Groq model with no history.
+          Both agents see only the alert, logs and recent change. An LLM judge scores each answer against ground truth: the failure family and, in the cold-start run, whether the top recommended fix is PayNest&apos;s actual fix.
+          The memory-OFF agent is a plain Groq LLM call with no history (the serving model is recorded with each result).
         </p>
       </div>
 
@@ -133,6 +133,9 @@ function ColdStartSection({ cold }: { cold: ColdResults | null }) {
   const lastRow = cold.rows.at(-1)!;
   const evalRows = cold.rows.filter((r) => r.phase === "eval");
   const evalAcc = (k: "on" | "off") => (evalRows.length ? evalRows.filter((r) => r[k].correct).length / evalRows.length : 0);
+  const hasFix = cold.rows.some((r) => r.fixCumulative);
+  const s = cold.summary;
+  const evalRate = (k: "on" | "off") => (evalRows.length ? evalRows.filter((r) => r[k].rightFix).length / evalRows.length : 0);
   return (
     <section className="space-y-5">
       <div>
@@ -141,36 +144,62 @@ function ColdStartSection({ cold }: { cold: ColdResults | null }) {
           {cold.n} incidents (Mar → Oct 2026) replayed in order against a bank that starts <b className="text-ink-100">empty</b>. Each alert is
           diagnosed with memory OFF and ON and scored, <i>then</i> its resolution is retained — as if the team just resolved it. Memory ON only
           ever knows about incidents that happened before.
+          {hasFix && (
+            <>
+              {" "}
+              The headline metric is PayNest-specific: did the <b className="text-ink-100">top recommended fix</b> match the fix that actually
+              worked (the team&apos;s runbook action, not a generic equivalent), and did the agent tell you to repeat a fix that{" "}
+              <b className="text-ink-100">already failed</b> in an earlier incident of the same kind?
+            </>
+          )}
         </p>
       </div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Overall accuracy" on={pct(cold.summary.on.accuracy)} off={pct(cold.summary.off.accuracy)} />
-        <Stat
-          label={`First ${first.to} incidents`}
-          on={pct(first.on)}
-          off={pct(first.off)}
-          hint={`memory starts empty`}
-        />
-        <Stat label={`Last ${last.to - last.from + 1} incidents`} on={pct(last.on)} off={pct(last.off)} hint={`${last.memoriesAtStart} memories at start`} />
-        <Stat
-          label="Held-out Oct incidents"
-          on={pct(evalAcc("on"))}
-          off={pct(evalAcc("off"))}
-          hint={`${evalRows.length} incidents · ${lastRow.memoriesBefore} memories by the end`}
-        />
-      </div>
+      {hasFix ? (
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Stat label="Right fix first try" on={pct(s.on.rightFix)} off={pct(s.off.rightFix)} hint={`all ${cold.n} incidents`} />
+            <Stat label="Right fix, held-out Oct" on={pct(evalRate("on"))} off={pct(evalRate("off"))} hint={`${evalRows.length} incidents`} />
+            <Stat label="Known-failed fixes repeated" on={String(s.on.repeatedFailed)} off={String(s.off.repeatedFailed)} hint="lower is better" />
+            <Stat label="Root-cause family accuracy" on={pct(s.on.accuracy)} off={pct(s.off.accuracy)} hint="coarse — guessable from symptoms" />
+          </div>
+          <div className="panel p-4">
+            <h3 className="mb-1 font-semibold">Right fix first try, and known-failed fixes repeated</h3>
+            <FixCharts rows={cold.rows} />
+          </div>
+          <h3 className="pt-2 font-semibold">Secondary: root-cause family accuracy</h3>
+        </>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Stat label="Overall accuracy" on={pct(cold.summary.on.accuracy)} off={pct(cold.summary.off.accuracy)} />
+          <Stat label={`First ${first.to} incidents`} on={pct(first.on)} off={pct(first.off)} hint="memory starts empty" />
+          <Stat label={`Last ${last.to - last.from + 1} incidents`} on={pct(last.on)} off={pct(last.off)} hint={`${last.memoriesAtStart} memories at start`} />
+          <Stat
+            label="Held-out Oct incidents"
+            on={pct(evalAcc("on"))}
+            off={pct(evalAcc("off"))}
+            hint={`${evalRows.length} incidents · ${lastRow.memoriesBefore} memories by the end`}
+          />
+        </div>
+      )}
       <div className="panel p-4">
         <ColdStartCharts rows={cold.rows} window={cold.window} />
       </div>
       <div className="panel overflow-x-auto">
-        <table className="w-full min-w-[520px] text-left text-sm">
+        <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="text-[11px] uppercase tracking-wider text-ink-400">
             <tr className="border-b border-ink-700">
               <th className="px-4 py-2">Incidents</th>
               <th className="px-2 py-2">Memories at start</th>
-              <th className="px-2 py-2">Memory OFF</th>
-              <th className="px-2 py-2">Memory ON</th>
+              <th className="px-2 py-2">Family acc. OFF</th>
+              <th className="px-2 py-2">Family acc. ON</th>
               <th className="px-2 py-2">Δ</th>
+              {hasFix && (
+                <>
+                  <th className="px-2 py-2">Right fix OFF</th>
+                  <th className="px-2 py-2">Right fix ON</th>
+                  <th className="px-2 py-2">Repeats OFF / ON</th>
+                </>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -185,6 +214,15 @@ function ColdStartSection({ cold }: { cold: ColdResults | null }) {
                 <td className={`px-2 py-2 ${b.on > b.off ? "text-emerald-300" : b.on < b.off ? "text-red-300" : "text-ink-400"}`}>
                   {b.on === b.off ? "±0" : `${b.on > b.off ? "+" : ""}${Math.round((b.on - b.off) * 100)} pts`}
                 </td>
+                {hasFix && (
+                  <>
+                    <td className="px-2 py-2">{pct(b.rightFix?.off ?? 0)}</td>
+                    <td className="px-2 py-2 font-semibold">{pct(b.rightFix?.on ?? 0)}</td>
+                    <td className="px-2 py-2">
+                      {b.repeatedFailed?.off ?? 0} / {b.repeatedFailed?.on ?? 0}
+                    </td>
+                  </>
+                )}
               </tr>
             ))}
           </tbody>

@@ -78,7 +78,7 @@
       {
         "at": "13:18",
         "who": "Arjun Mehta",
-        "msg": "applying: added ±20% TTL jitter and singleflight request coalescing on vpa:resolve:*; raised redis maxmemory 12GB → 20GB"
+        "msg": "applying: ran runbook RB-CACHE-04: `pnctl cache harden vpa:resolve:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`"
       },
       {
         "at": "13:26",
@@ -88,11 +88,11 @@
     ],
     "rootCause": "salary day peak traffic (4x normal TPS) pushed redis-cache past maxmemory 12GB. Hot vpa:resolve:* keys were evicted/expired together during salary day peak, causing a cache stampede onto vpa_registry in postgres and a Redis eviction storm.",
     "family": "redis-eviction-storm",
-    "fixThatWorked": "added ±20% TTL jitter and singleflight request coalescing on vpa:resolve:*; raised redis maxmemory 12GB → 20GB",
+    "fixThatWorked": "ran runbook RB-CACHE-04: `pnctl cache harden vpa:resolve:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`",
     "fixesThatFailed": [],
     "resolvedBy": "Arjun Mehta",
     "ttrMinutes": 33,
-    "postMortem": "Impact: p99 latency 5s for 43 min; 19,567 timeouts at checkout. No internal change preceded it. Root cause: salary day peak traffic (4x normal TPS) pushed redis-cache past maxmemory 12GB. Hot vpa:resolve:* keys were evicted/expired together during salary day peak, causing a cache stampede onto vpa_registry in postgres and a Redis eviction storm. Resolution: added ±20% TTL jitter and singleflight request coalescing on vpa:resolve:*; raised redis maxmemory 12GB → 20GB (by Arjun Mehta, TTR 33 min). Action items: TTL jitter everywhere; Pre-scale redis-cache before salary day and sale events; Ban FLUSHALL in prod without approval."
+    "postMortem": "Impact: p99 latency 5s for 43 min; 19,567 timeouts at checkout. No internal change preceded it. Root cause: salary day peak traffic (4x normal TPS) pushed redis-cache past maxmemory 12GB. Hot vpa:resolve:* keys were evicted/expired together during salary day peak, causing a cache stampede onto vpa_registry in postgres and a Redis eviction storm. Resolution: ran runbook RB-CACHE-04: `pnctl cache harden vpa:resolve:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb` (by Arjun Mehta, TTR 33 min). Action items: TTL jitter everywhere; Pre-scale redis-cache before salary day and sale events; Ban FLUSHALL in prod without approval."
   },
   {
     "id": "INC-2210",
@@ -183,7 +183,7 @@
       {
         "at": "13:26",
         "who": "Arjun Mehta",
-        "msg": "applying: enabled stale-while-revalidate for sess:* and scaled redis-cache to a 6-shard cluster"
+        "msg": "applying: ran runbook RB-CACHE-04: `pnctl cache harden sess:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`"
       },
       {
         "at": "13:32",
@@ -193,13 +193,13 @@
     ],
     "rootCause": "auth-svc deploy started caching full merchant/user objects (~40KB each) instead of IDs (commit 85d7c28). Hot sess:* keys were evicted/expired together during Holi sale peak, causing a cache stampede onto user_sessions in postgres and a Redis eviction storm.",
     "family": "redis-eviction-storm",
-    "fixThatWorked": "enabled stale-while-revalidate for sess:* and scaled redis-cache to a 6-shard cluster",
+    "fixThatWorked": "ran runbook RB-CACHE-04: `pnctl cache harden sess:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`",
     "fixesThatFailed": [
       "FLUSHALL on redis-cache to clear memory"
     ],
     "resolvedBy": "Arjun Mehta",
     "ttrMinutes": 88,
-    "postMortem": "Impact: p99 latency 4s for 24 min; 21,351 timeouts at checkout. Trigger: auth-svc deploy started caching full merchant/user objects (~40KB each) instead of IDs (commit 85d7c28 by Rahul Verma). Root cause: auth-svc deploy started caching full merchant/user objects (~40KB each) instead of IDs (commit 85d7c28). Hot sess:* keys were evicted/expired together during Holi sale peak, causing a cache stampede onto user_sessions in postgres and a Redis eviction storm. Resolution: enabled stale-while-revalidate for sess:* and scaled redis-cache to a 6-shard cluster (by Arjun Mehta, TTR 88 min). What did NOT work: FLUSHALL on redis-cache to clear memory (cold cache doubled DB load; destructive and made latency worse). Action items: TTL jitter everywhere; Pre-scale redis-cache before salary day and sale events; Ban FLUSHALL in prod without approval."
+    "postMortem": "Impact: p99 latency 4s for 24 min; 21,351 timeouts at checkout. Trigger: auth-svc deploy started caching full merchant/user objects (~40KB each) instead of IDs (commit 85d7c28 by Rahul Verma). Root cause: auth-svc deploy started caching full merchant/user objects (~40KB each) instead of IDs (commit 85d7c28). Hot sess:* keys were evicted/expired together during Holi sale peak, causing a cache stampede onto user_sessions in postgres and a Redis eviction storm. Resolution: ran runbook RB-CACHE-04: `pnctl cache harden sess:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb` (by Arjun Mehta, TTR 88 min). What did NOT work: FLUSHALL on redis-cache to clear memory (cold cache doubled DB load; destructive and made latency worse). Action items: TTL jitter everywhere; Pre-scale redis-cache before salary day and sale events; Ban FLUSHALL in prod without approval."
   },
   {
     "id": "INC-2212",
@@ -290,7 +290,7 @@
       {
         "at": "12:40",
         "who": "Sneha Kulkarni",
-        "msg": "applying: reverted max.poll.records to 500, switched to CooperativeStickyAssignor and enabled static membership (group.instance.id); lag drained in 25 min"
+        "msg": "applying: ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count)"
       },
       {
         "at": "12:47",
@@ -300,13 +300,13 @@
     ],
     "rootCause": "kafka rolling upgrade restarted kafka-2 (group coordinator), triggering a group rebalance with the eager assignor (abc4c4b). Consumers exceeded max.poll.interval.ms or were revoked repeatedly, putting notif-worker into a partition-rebalance loop so lag on payment.events kept growing.",
     "family": "kafka-consumer-lag",
-    "fixThatWorked": "reverted max.poll.records to 500, switched to CooperativeStickyAssignor and enabled static membership (group.instance.id); lag drained in 25 min",
+    "fixThatWorked": "ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count)",
     "fixesThatFailed": [
       "reset consumer group offsets to latest"
     ],
     "resolvedBy": "Sneha Kulkarni",
     "ttrMinutes": 89,
-    "postMortem": "Impact: 3,49,000 payment notifications delayed up to 26 min; support tickets spiked. Trigger: kafka rolling upgrade restarted kafka-2 (group coordinator), triggering a group rebalance with the eager assignor (commit abc4c4b by Arjun Mehta). Root cause: kafka rolling upgrade restarted kafka-2 (group coordinator), triggering a group rebalance with the eager assignor (abc4c4b). Consumers exceeded max.poll.interval.ms or were revoked repeatedly, putting notif-worker into a partition-rebalance loop so lag on payment.events kept growing. Resolution: reverted max.poll.records to 500, switched to CooperativeStickyAssignor and enabled static membership (group.instance.id); lag drained in 25 min (by Sneha Kulkarni, TTR 89 min). What did NOT work: reset consumer group offsets to latest (would skip ~3,49,000 payment notifications; destructive, needed approval and was reverted). Action items: Cooperative rebalancing for all consumers; Alert on consumer group generation churn; Replica cap = partition count."
+    "postMortem": "Impact: 3,49,000 payment notifications delayed up to 26 min; support tickets spiked. Trigger: kafka rolling upgrade restarted kafka-2 (group coordinator), triggering a group rebalance with the eager assignor (commit abc4c4b by Arjun Mehta). Root cause: kafka rolling upgrade restarted kafka-2 (group coordinator), triggering a group rebalance with the eager assignor (abc4c4b). Consumers exceeded max.poll.interval.ms or were revoked repeatedly, putting notif-worker into a partition-rebalance loop so lag on payment.events kept growing. Resolution: ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count) (by Sneha Kulkarni, TTR 89 min). What did NOT work: reset consumer group offsets to latest (would skip ~3,49,000 payment notifications; destructive, needed approval and was reverted). Action items: Cooperative rebalancing for all consumers; Alert on consumer group generation churn; Replica cap = partition count."
   },
   {
     "id": "INC-2216",
@@ -395,7 +395,7 @@
       {
         "at": "22:24",
         "who": "Arjun Mehta",
-        "msg": "applying: issued a new NPCI mTLS client cert from Vault PKI, updated the secret and reloaded upi-gateway"
+        "msg": "applying: ran runbook RB-SEC-04: `pnctl certs issue npci-client` (new NPCI mTLS client cert from Vault PKI) and reloaded upi-gateway"
       },
       {
         "at": "22:29",
@@ -405,14 +405,14 @@
     ],
     "rootCause": "mTLS client certificate used by upi-gateway to talk to NPCI expired. upi-gateway failed TLS/auth for every dependent call.",
     "family": "tls-secret-expiry",
-    "fixThatWorked": "issued a new NPCI mTLS client cert from Vault PKI, updated the secret and reloaded upi-gateway",
+    "fixThatWorked": "ran runbook RB-SEC-04: `pnctl certs issue npci-client` (new NPCI mTLS client cert from Vault PKI) and reloaded upi-gateway",
     "fixesThatFailed": [
       "rolled back the last upi-gateway deploy",
       "restarted upi-gateway pods"
     ],
     "resolvedBy": "Arjun Mehta",
     "ttrMinutes": 86,
-    "postMortem": "Impact: 22 min of failed logins/payments; 81,720 users affected. Trigger: mTLS client certificate used by upi-gateway to talk to NPCI expired (commit e25e21c by Fatima Sheikh). Root cause: mTLS client certificate used by upi-gateway to talk to NPCI expired. upi-gateway failed TLS/auth for every dependent call. Resolution: issued a new NPCI mTLS client cert from Vault PKI, updated the secret and reloaded upi-gateway (by Arjun Mehta, TTR 86 min). What did NOT work: rolled back the last upi-gateway deploy (the credential is not in the image; no change); restarted upi-gateway pods (pods re-mounted the same stale Secret (ExternalSecret had not synced)). Action items: Alert 14 days before any cert expiry; Rotations must trigger ExternalSecret sync + rolling reload; Runbook: credential incidents never need a code rollback."
+    "postMortem": "Impact: 22 min of failed logins/payments; 81,720 users affected. Trigger: mTLS client certificate used by upi-gateway to talk to NPCI expired (commit e25e21c by Fatima Sheikh). Root cause: mTLS client certificate used by upi-gateway to talk to NPCI expired. upi-gateway failed TLS/auth for every dependent call. Resolution: ran runbook RB-SEC-04: `pnctl certs issue npci-client` (new NPCI mTLS client cert from Vault PKI) and reloaded upi-gateway (by Arjun Mehta, TTR 86 min). What did NOT work: rolled back the last upi-gateway deploy (the credential is not in the image; no change); restarted upi-gateway pods (pods re-mounted the same stale Secret (ExternalSecret had not synced)). Action items: Alert 14 days before any cert expiry; Rotations must trigger ExternalSecret sync + rolling reload; Runbook: credential incidents never need a code rollback."
   },
   {
     "id": "INC-2219",
@@ -493,7 +493,7 @@
       {
         "at": "00:18",
         "who": "Sneha Kulkarni",
-        "msg": "applying: pinned notif-worker replicas to 12 (= partitions), enabled static membership and raised max.poll.interval.ms to 600s"
+        "msg": "applying: ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count)"
       },
       {
         "at": "00:22",
@@ -503,13 +503,13 @@
     ],
     "rootCause": "kafka rolling upgrade restarted kafka-2 (group coordinator), triggering a group rebalance with the eager assignor (64805f0). Consumers exceeded max.poll.interval.ms or were revoked repeatedly, putting notif-worker into a partition-rebalance loop so lag on payment.events kept growing.",
     "family": "kafka-consumer-lag",
-    "fixThatWorked": "pinned notif-worker replicas to 12 (= partitions), enabled static membership and raised max.poll.interval.ms to 600s",
+    "fixThatWorked": "ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count)",
     "fixesThatFailed": [
       "restarted notif-worker pods"
     ],
     "resolvedBy": "Sneha Kulkarni",
     "ttrMinutes": 44,
-    "postMortem": "Impact: 3,81,000 payment notifications delayed up to 46 min; support tickets spiked. Trigger: kafka rolling upgrade restarted kafka-2 (group coordinator), triggering a group rebalance with the eager assignor (commit 64805f0 by Meera Pillai). Root cause: kafka rolling upgrade restarted kafka-2 (group coordinator), triggering a group rebalance with the eager assignor (64805f0). Consumers exceeded max.poll.interval.ms or were revoked repeatedly, putting notif-worker into a partition-rebalance loop so lag on payment.events kept growing. Resolution: pinned notif-worker replicas to 12 (= partitions), enabled static membership and raised max.poll.interval.ms to 600s (by Sneha Kulkarni, TTR 44 min). What did NOT work: restarted notif-worker pods (every restart kicked off another rebalance). Action items: Cooperative rebalancing for all consumers; Alert on consumer group generation churn; Replica cap = partition count."
+    "postMortem": "Impact: 3,81,000 payment notifications delayed up to 46 min; support tickets spiked. Trigger: kafka rolling upgrade restarted kafka-2 (group coordinator), triggering a group rebalance with the eager assignor (commit 64805f0 by Meera Pillai). Root cause: kafka rolling upgrade restarted kafka-2 (group coordinator), triggering a group rebalance with the eager assignor (64805f0). Consumers exceeded max.poll.interval.ms or were revoked repeatedly, putting notif-worker into a partition-rebalance loop so lag on payment.events kept growing. Resolution: ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count) (by Sneha Kulkarni, TTR 44 min). What did NOT work: restarted notif-worker pods (every restart kicked off another rebalance). Action items: Cooperative rebalancing for all consumers; Alert on consumer group generation churn; Replica cap = partition count."
   },
   {
     "id": "INC-2223",
@@ -609,7 +609,7 @@
       {
         "at": "12:21",
         "who": "Karthik Iyer",
-        "msg": "applying: switched pgbouncer to transaction pooling for ledger-svc and lowered pool_size to 5"
+        "msg": "applying: ran runbook RB-PG-07: `pnctl db pool-cap ledger-svc --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls ledger-svc)"
       },
       {
         "at": "12:25",
@@ -619,14 +619,14 @@
     ],
     "rootCause": "ledger-svc deploy increased Hikari maximumPoolSize from 20 to 60 and raised replicas to 9 (commit 94e36c1). 18 pods x 8 workers x pool 10 = up to 1,440 connections against postgres max_connections=800 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection.",
     "family": "db-pool-exhaustion",
-    "fixThatWorked": "switched pgbouncer to transaction pooling for ledger-svc and lowered pool_size to 5",
+    "fixThatWorked": "ran runbook RB-PG-07: `pnctl db pool-cap ledger-svc --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls ledger-svc)",
     "fixesThatFailed": [
       "scaled ledger-svc HPA up by 50%",
       "restarted ledger-svc pods (kubectl rollout restart deploy/ledger-svc)"
     ],
     "resolvedBy": "Karthik Iyer",
     "ttrMinutes": 103,
-    "postMortem": "Impact: 44,148 failed UPI collect requests (~₹19 Cr GMV delayed). Trigger: ledger-svc deploy increased Hikari maximumPoolSize from 20 to 60 and raised replicas to 9 (commit 94e36c1 by Rohan Gupta). Root cause: ledger-svc deploy increased Hikari maximumPoolSize from 20 to 60 and raised replicas to 9 (commit 94e36c1). 18 pods x 8 workers x pool 10 = up to 1,440 connections against postgres max_connections=800 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection. Resolution: switched pgbouncer to transaction pooling for ledger-svc and lowered pool_size to 5 (by Karthik Iyer, TTR 103 min). What did NOT work: scaled ledger-svc HPA up by 50% (more pods = more connections; postgres hit max_connections faster); restarted ledger-svc pods (kubectl rollout restart deploy/ledger-svc) (pool re-exhausted within 4 minutes as new workers reconnected). Action items: Add CI check: workers x replicas x pool_size must stay below pgbouncer max_client_conn; Alert on pgbouncer cl_waiting > 50; Document that pod restarts do not fix pool exhaustion."
+    "postMortem": "Impact: 44,148 failed UPI collect requests (~₹19 Cr GMV delayed). Trigger: ledger-svc deploy increased Hikari maximumPoolSize from 20 to 60 and raised replicas to 9 (commit 94e36c1 by Rohan Gupta). Root cause: ledger-svc deploy increased Hikari maximumPoolSize from 20 to 60 and raised replicas to 9 (commit 94e36c1). 18 pods x 8 workers x pool 10 = up to 1,440 connections against postgres max_connections=800 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection. Resolution: ran runbook RB-PG-07: `pnctl db pool-cap ledger-svc --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls ledger-svc) (by Karthik Iyer, TTR 103 min). What did NOT work: scaled ledger-svc HPA up by 50% (more pods = more connections; postgres hit max_connections faster); restarted ledger-svc pods (kubectl rollout restart deploy/ledger-svc) (pool re-exhausted within 4 minutes as new workers reconnected). Action items: Add CI check: workers x replicas x pool_size must stay below pgbouncer max_client_conn; Alert on pgbouncer cl_waiting > 50; Document that pod restarts do not fix pool exhaustion."
   },
   {
     "id": "INC-2226",
@@ -727,7 +727,7 @@
       {
         "at": "01:13",
         "who": "Rahul Verma",
-        "msg": "applying: opened the Kotak circuit breaker manually, routed Kotak via the secondary NPCI endpoint and isolated it in a bulkhead thread pool"
+        "msg": "applying: ran runbook RB-UPI-03: `pnctl upi failover --psp Kotak --route npci-dc2` (opens the npci-kotak breaker, routes Kotak via NPCI-DC2, ReqPay timeout 8s)"
       },
       {
         "at": "01:21",
@@ -737,14 +737,14 @@
     ],
     "rootCause": "Kotak remitter-bank switch degraded behind NPCI (external); no internal change. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for Kotak saturated the shared npci-client thread pool and dragged success rate down for every bank.",
     "family": "npci-bank-timeout",
-    "fixThatWorked": "opened the Kotak circuit breaker manually, routed Kotak via the secondary NPCI endpoint and isolated it in a bulkhead thread pool",
+    "fixThatWorked": "ran runbook RB-UPI-03: `pnctl upi failover --psp Kotak --route npci-dc2` (opens the npci-kotak breaker, routes Kotak via NPCI-DC2, ReqPay timeout 8s)",
     "fixesThatFailed": [
       "bulk-retried failed ReqPay calls",
       "restarted upi-gateway pods"
     ],
     "resolvedBy": "Rahul Verma",
     "ttrMinutes": 93,
-    "postMortem": "Impact: 83,632 UPI transactions failed or went DEEMED; Kotak customers most affected. No internal change preceded it. Root cause: Kotak remitter-bank switch degraded behind NPCI (external); no internal change. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for Kotak saturated the shared npci-client thread pool and dragged success rate down for every bank. Resolution: opened the Kotak circuit breaker manually, routed Kotak via the secondary NPCI endpoint and isolated it in a bulkhead thread pool (by Rahul Verma, TTR 93 min). What did NOT work: bulk-retried failed ReqPay calls (risk of duplicate debits; stopped by payments lead); restarted upi-gateway pods (timeouts returned immediately; cause is external). Action items: Per-bank bulkheads in npci-client; Auto circuit breaker per payer_psp; Status page template for partner-bank degradation."
+    "postMortem": "Impact: 83,632 UPI transactions failed or went DEEMED; Kotak customers most affected. No internal change preceded it. Root cause: Kotak remitter-bank switch degraded behind NPCI (external); no internal change. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for Kotak saturated the shared npci-client thread pool and dragged success rate down for every bank. Resolution: ran runbook RB-UPI-03: `pnctl upi failover --psp Kotak --route npci-dc2` (opens the npci-kotak breaker, routes Kotak via NPCI-DC2, ReqPay timeout 8s) (by Rahul Verma, TTR 93 min). What did NOT work: bulk-retried failed ReqPay calls (risk of duplicate debits; stopped by payments lead); restarted upi-gateway pods (timeouts returned immediately; cause is external). Action items: Per-bank bulkheads in npci-client; Auto circuit breaker per payer_psp; Status page template for partner-bank degradation."
   },
   {
     "id": "INC-2232",
@@ -834,7 +834,7 @@
       {
         "at": "21:02",
         "who": "Karthik Iyer",
-        "msg": "applying: capped pool per worker (pool_size=5, max_overflow=5) via hotfix config and rolled payments-api; active connections fell from 500 to ~200"
+        "msg": "applying: ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api)"
       },
       {
         "at": "21:11",
@@ -844,14 +844,14 @@
     ],
     "rootCause": "payments-api HPA maxReplicas raised from 15 to 30 ahead of a sale, each pod holding pool_size=20 (commit 3e20162). 30 pods x 8 workers x pool 20 = up to 4,800 connections against postgres max_connections=500 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection.",
     "family": "db-pool-exhaustion",
-    "fixThatWorked": "capped pool per worker (pool_size=5, max_overflow=5) via hotfix config and rolled payments-api; active connections fell from 500 to ~200",
+    "fixThatWorked": "ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api)",
     "fixesThatFailed": [
       "restarted payments-api pods (kubectl rollout restart deploy/payments-api)",
       "scaled payments-api HPA up by 50%"
     ],
     "resolvedBy": "Karthik Iyer",
     "ttrMinutes": 86,
-    "postMortem": "Impact: 45,178 failed UPI collect requests (~₹11 Cr GMV delayed). Trigger: payments-api HPA maxReplicas raised from 15 to 30 ahead of a sale, each pod holding pool_size=20 (commit 3e20162 by Meera Pillai). Root cause: payments-api HPA maxReplicas raised from 15 to 30 ahead of a sale, each pod holding pool_size=20 (commit 3e20162). 30 pods x 8 workers x pool 20 = up to 4,800 connections against postgres max_connections=500 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection. Resolution: capped pool per worker (pool_size=5, max_overflow=5) via hotfix config and rolled payments-api; active connections fell from 500 to ~200 (by Karthik Iyer, TTR 86 min). What did NOT work: restarted payments-api pods (kubectl rollout restart deploy/payments-api) (pool re-exhausted within 4 minutes as new workers reconnected); scaled payments-api HPA up by 50% (more pods = more connections; postgres hit max_connections faster). Action items: Add CI check: workers x replicas x pool_size must stay below pgbouncer max_client_conn; Alert on pgbouncer cl_waiting > 50; Document that pod restarts do not fix pool exhaustion."
+    "postMortem": "Impact: 45,178 failed UPI collect requests (~₹11 Cr GMV delayed). Trigger: payments-api HPA maxReplicas raised from 15 to 30 ahead of a sale, each pod holding pool_size=20 (commit 3e20162 by Meera Pillai). Root cause: payments-api HPA maxReplicas raised from 15 to 30 ahead of a sale, each pod holding pool_size=20 (commit 3e20162). 30 pods x 8 workers x pool 20 = up to 4,800 connections against postgres max_connections=500 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection. Resolution: ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api) (by Karthik Iyer, TTR 86 min). What did NOT work: restarted payments-api pods (kubectl rollout restart deploy/payments-api) (pool re-exhausted within 4 minutes as new workers reconnected); scaled payments-api HPA up by 50% (more pods = more connections; postgres hit max_connections faster). Action items: Add CI check: workers x replicas x pool_size must stay below pgbouncer max_client_conn; Alert on pgbouncer cl_waiting > 50; Document that pod restarts do not fix pool exhaustion."
   },
   {
     "id": "INC-2237",
@@ -931,7 +931,7 @@
       {
         "at": "13:09",
         "who": "Priya Raman",
-        "msg": "applying: rolled back deploy a718260 to restore WORKERS=4; connection count normalised in 3 minutes"
+        "msg": "applying: ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api)"
       },
       {
         "at": "13:13",
@@ -941,13 +941,13 @@
     ],
     "rootCause": "payments-api deploy raised gunicorn WORKERS from 4 to 8 per pod (\"scale for salary-day load\") (commit a718260). 24 pods x 8 workers x pool 10 = up to 1,920 connections against postgres max_connections=800 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection.",
     "family": "db-pool-exhaustion",
-    "fixThatWorked": "rolled back deploy a718260 to restore WORKERS=4; connection count normalised in 3 minutes",
+    "fixThatWorked": "ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api)",
     "fixesThatFailed": [
       "scaled payments-api HPA up by 50%"
     ],
     "resolvedBy": "Priya Raman",
     "ttrMinutes": 86,
-    "postMortem": "Impact: 33,045 failed UPI collect requests (~₹14 Cr GMV delayed). Trigger: payments-api deploy raised gunicorn WORKERS from 4 to 8 per pod (\"scale for salary-day load\") (commit a718260 by Rohan Gupta). Root cause: payments-api deploy raised gunicorn WORKERS from 4 to 8 per pod (\"scale for salary-day load\") (commit a718260). 24 pods x 8 workers x pool 10 = up to 1,920 connections against postgres max_connections=800 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection. Resolution: rolled back deploy a718260 to restore WORKERS=4; connection count normalised in 3 minutes (by Priya Raman, TTR 86 min). What did NOT work: scaled payments-api HPA up by 50% (more pods = more connections; postgres hit max_connections faster). Action items: Add CI check: workers x replicas x pool_size must stay below pgbouncer max_client_conn; Alert on pgbouncer cl_waiting > 50; Document that pod restarts do not fix pool exhaustion."
+    "postMortem": "Impact: 33,045 failed UPI collect requests (~₹14 Cr GMV delayed). Trigger: payments-api deploy raised gunicorn WORKERS from 4 to 8 per pod (\"scale for salary-day load\") (commit a718260 by Rohan Gupta). Root cause: payments-api deploy raised gunicorn WORKERS from 4 to 8 per pod (\"scale for salary-day load\") (commit a718260). 24 pods x 8 workers x pool 10 = up to 1,920 connections against postgres max_connections=800 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection. Resolution: ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api) (by Priya Raman, TTR 86 min). What did NOT work: scaled payments-api HPA up by 50% (more pods = more connections; postgres hit max_connections faster). Action items: Add CI check: workers x replicas x pool_size must stay below pgbouncer max_client_conn; Alert on pgbouncer cl_waiting > 50; Document that pod restarts do not fix pool exhaustion."
   },
   {
     "id": "INC-2240",
@@ -1038,7 +1038,7 @@
       {
         "at": "03:30",
         "who": "Sneha Kulkarni",
-        "msg": "applying: reverted max.poll.records to 500, switched to CooperativeStickyAssignor and enabled static membership (group.instance.id); lag drained in 25 min"
+        "msg": "applying: ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count)"
       },
       {
         "at": "03:39",
@@ -1048,13 +1048,13 @@
     ],
     "rootCause": "notif-worker scaled from 6 to 32 replicas, more consumers than the 24 partitions of payment.events (df78ef2). Consumers exceeded max.poll.interval.ms or were revoked repeatedly, putting notif-worker into a partition-rebalance loop so lag on payment.events kept growing.",
     "family": "kafka-consumer-lag",
-    "fixThatWorked": "reverted max.poll.records to 500, switched to CooperativeStickyAssignor and enabled static membership (group.instance.id); lag drained in 25 min",
+    "fixThatWorked": "ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count)",
     "fixesThatFailed": [
       "reset consumer group offsets to latest"
     ],
     "resolvedBy": "Sneha Kulkarni",
     "ttrMinutes": 53,
-    "postMortem": "Impact: 1,03,000 payment notifications delayed up to 38 min; support tickets spiked. Trigger: notif-worker scaled from 6 to 32 replicas, more consumers than the 24 partitions of payment.events (commit df78ef2 by Fatima Sheikh). Root cause: notif-worker scaled from 6 to 32 replicas, more consumers than the 24 partitions of payment.events (df78ef2). Consumers exceeded max.poll.interval.ms or were revoked repeatedly, putting notif-worker into a partition-rebalance loop so lag on payment.events kept growing. Resolution: reverted max.poll.records to 500, switched to CooperativeStickyAssignor and enabled static membership (group.instance.id); lag drained in 25 min (by Sneha Kulkarni, TTR 53 min). What did NOT work: reset consumer group offsets to latest (would skip ~1,03,000 payment notifications; destructive, needed approval and was reverted). Action items: Cooperative rebalancing for all consumers; Alert on consumer group generation churn; Replica cap = partition count."
+    "postMortem": "Impact: 1,03,000 payment notifications delayed up to 38 min; support tickets spiked. Trigger: notif-worker scaled from 6 to 32 replicas, more consumers than the 24 partitions of payment.events (commit df78ef2 by Fatima Sheikh). Root cause: notif-worker scaled from 6 to 32 replicas, more consumers than the 24 partitions of payment.events (df78ef2). Consumers exceeded max.poll.interval.ms or were revoked repeatedly, putting notif-worker into a partition-rebalance loop so lag on payment.events kept growing. Resolution: ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count) (by Sneha Kulkarni, TTR 53 min). What did NOT work: reset consumer group offsets to latest (would skip ~1,03,000 payment notifications; destructive, needed approval and was reverted). Action items: Cooperative rebalancing for all consumers; Alert on consumer group generation churn; Replica cap = partition count."
   },
   {
     "id": "INC-2244",
@@ -1143,7 +1143,7 @@
       {
         "at": "05:03",
         "who": "Fatima Sheikh",
-        "msg": "applying: forced ExternalSecret resync and rolling restart of auth-svc so pods picked up new Vault DB creds"
+        "msg": "applying: ran runbook RB-SEC-02: `pnctl secrets resync auth-svc` (forces the ExternalSecret sync of the rotated Vault creds and rolls auth-svc)"
       },
       {
         "at": "05:11",
@@ -1153,14 +1153,14 @@
     ],
     "rootCause": "Vault rotated the auth-svc postgres credentials; running pods kept the expired lease. auth-svc failed TLS/auth for every dependent call.",
     "family": "tls-secret-expiry",
-    "fixThatWorked": "forced ExternalSecret resync and rolling restart of auth-svc so pods picked up new Vault DB creds",
+    "fixThatWorked": "ran runbook RB-SEC-02: `pnctl secrets resync auth-svc` (forces the ExternalSecret sync of the rotated Vault creds and rolls auth-svc)",
     "fixesThatFailed": [
       "restarted auth-svc pods",
       "rolled back the last auth-svc deploy"
     ],
     "resolvedBy": "Fatima Sheikh",
     "ttrMinutes": 52,
-    "postMortem": "Impact: 21 min of failed logins/payments; 48,134 users affected. Trigger: Vault rotated the auth-svc postgres credentials; running pods kept the expired lease (commit ddec46a by Vikram Nair). Root cause: Vault rotated the auth-svc postgres credentials; running pods kept the expired lease. auth-svc failed TLS/auth for every dependent call. Resolution: forced ExternalSecret resync and rolling restart of auth-svc so pods picked up new Vault DB creds (by Fatima Sheikh, TTR 52 min). What did NOT work: restarted auth-svc pods (pods re-mounted the same stale Secret (ExternalSecret had not synced)); rolled back the last auth-svc deploy (the credential is not in the image; no change). Action items: Alert 14 days before any cert expiry; Rotations must trigger ExternalSecret sync + rolling reload; Runbook: credential incidents never need a code rollback."
+    "postMortem": "Impact: 21 min of failed logins/payments; 48,134 users affected. Trigger: Vault rotated the auth-svc postgres credentials; running pods kept the expired lease (commit ddec46a by Vikram Nair). Root cause: Vault rotated the auth-svc postgres credentials; running pods kept the expired lease. auth-svc failed TLS/auth for every dependent call. Resolution: ran runbook RB-SEC-02: `pnctl secrets resync auth-svc` (forces the ExternalSecret sync of the rotated Vault creds and rolls auth-svc) (by Fatima Sheikh, TTR 52 min). What did NOT work: restarted auth-svc pods (pods re-mounted the same stale Secret (ExternalSecret had not synced)); rolled back the last auth-svc deploy (the credential is not in the image; no change). Action items: Alert 14 days before any cert expiry; Rotations must trigger ExternalSecret sync + rolling reload; Runbook: credential incidents never need a code rollback."
   },
   {
     "id": "INC-2246",
@@ -1241,7 +1241,7 @@
       {
         "at": "03:21",
         "who": "Sneha Kulkarni",
-        "msg": "applying: pinned notif-worker replicas to 24 (= partitions), enabled static membership and raised max.poll.interval.ms to 600s"
+        "msg": "applying: ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count)"
       },
       {
         "at": "03:30",
@@ -1251,13 +1251,13 @@
     ],
     "rootCause": "notif-worker deploy raised max.poll.records from 500 to 5000 while SMS provider calls stay synchronous (1a52738). Consumers exceeded max.poll.interval.ms or were revoked repeatedly, putting notif-worker into a partition-rebalance loop so lag on payment.events kept growing.",
     "family": "kafka-consumer-lag",
-    "fixThatWorked": "pinned notif-worker replicas to 24 (= partitions), enabled static membership and raised max.poll.interval.ms to 600s",
+    "fixThatWorked": "ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count)",
     "fixesThatFailed": [
       "reset consumer group offsets to latest"
     ],
     "resolvedBy": "Sneha Kulkarni",
     "ttrMinutes": 51,
-    "postMortem": "Impact: 4,32,000 payment notifications delayed up to 20 min; support tickets spiked. Trigger: notif-worker deploy raised max.poll.records from 500 to 5000 while SMS provider calls stay synchronous (commit 1a52738 by Vikram Nair). Root cause: notif-worker deploy raised max.poll.records from 500 to 5000 while SMS provider calls stay synchronous (1a52738). Consumers exceeded max.poll.interval.ms or were revoked repeatedly, putting notif-worker into a partition-rebalance loop so lag on payment.events kept growing. Resolution: pinned notif-worker replicas to 24 (= partitions), enabled static membership and raised max.poll.interval.ms to 600s (by Sneha Kulkarni, TTR 51 min). What did NOT work: reset consumer group offsets to latest (would skip ~4,32,000 payment notifications; destructive, needed approval and was reverted). Action items: Cooperative rebalancing for all consumers; Alert on consumer group generation churn; Replica cap = partition count."
+    "postMortem": "Impact: 4,32,000 payment notifications delayed up to 20 min; support tickets spiked. Trigger: notif-worker deploy raised max.poll.records from 500 to 5000 while SMS provider calls stay synchronous (commit 1a52738 by Vikram Nair). Root cause: notif-worker deploy raised max.poll.records from 500 to 5000 while SMS provider calls stay synchronous (1a52738). Consumers exceeded max.poll.interval.ms or were revoked repeatedly, putting notif-worker into a partition-rebalance loop so lag on payment.events kept growing. Resolution: ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count) (by Sneha Kulkarni, TTR 51 min). What did NOT work: reset consumer group offsets to latest (would skip ~4,32,000 payment notifications; destructive, needed approval and was reverted). Action items: Cooperative rebalancing for all consumers; Alert on consumer group generation churn; Replica cap = partition count."
   },
   {
     "id": "INC-2251",
@@ -1348,7 +1348,7 @@
       {
         "at": "03:57",
         "who": "Sneha Kulkarni",
-        "msg": "applying: reverted max.poll.records to 500, switched to CooperativeStickyAssignor and enabled static membership (group.instance.id); lag drained in 25 min"
+        "msg": "applying: ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count)"
       },
       {
         "at": "04:02",
@@ -1358,13 +1358,13 @@
     ],
     "rootCause": "payment.events partitions increased from 24 to 48, triggering a full rebalance of notif-worker (4c67130). Consumers exceeded max.poll.interval.ms or were revoked repeatedly, putting notif-worker into a partition-rebalance loop so lag on payment.events kept growing.",
     "family": "kafka-consumer-lag",
-    "fixThatWorked": "reverted max.poll.records to 500, switched to CooperativeStickyAssignor and enabled static membership (group.instance.id); lag drained in 25 min",
+    "fixThatWorked": "ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count)",
     "fixesThatFailed": [
       "scaled notif-worker to 30 replicas"
     ],
     "resolvedBy": "Sneha Kulkarni",
     "ttrMinutes": 93,
-    "postMortem": "Impact: 81,000 payment notifications delayed up to 49 min; support tickets spiked. Trigger: payment.events partitions increased from 24 to 48, triggering a full rebalance of notif-worker (commit 4c67130 by Fatima Sheikh). Root cause: payment.events partitions increased from 24 to 48, triggering a full rebalance of notif-worker (4c67130). Consumers exceeded max.poll.interval.ms or were revoked repeatedly, putting notif-worker into a partition-rebalance loop so lag on payment.events kept growing. Resolution: reverted max.poll.records to 500, switched to CooperativeStickyAssignor and enabled static membership (group.instance.id); lag drained in 25 min (by Sneha Kulkarni, TTR 93 min). What did NOT work: scaled notif-worker to 30 replicas (only 24 partitions; extra members just triggered more rebalances). Action items: Cooperative rebalancing for all consumers; Alert on consumer group generation churn; Replica cap = partition count."
+    "postMortem": "Impact: 81,000 payment notifications delayed up to 49 min; support tickets spiked. Trigger: payment.events partitions increased from 24 to 48, triggering a full rebalance of notif-worker (commit 4c67130 by Fatima Sheikh). Root cause: payment.events partitions increased from 24 to 48, triggering a full rebalance of notif-worker (4c67130). Consumers exceeded max.poll.interval.ms or were revoked repeatedly, putting notif-worker into a partition-rebalance loop so lag on payment.events kept growing. Resolution: ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count) (by Sneha Kulkarni, TTR 93 min). What did NOT work: scaled notif-worker to 30 replicas (only 24 partitions; extra members just triggered more rebalances). Action items: Cooperative rebalancing for all consumers; Alert on consumer group generation churn; Replica cap = partition count."
   },
   {
     "id": "INC-2254",
@@ -1455,7 +1455,7 @@
       {
         "at": "01:10",
         "who": "Fatima Sheikh",
-        "msg": "applying: added ±20% TTL jitter and singleflight request coalescing on vpa:resolve:*; raised redis maxmemory 12GB → 20GB"
+        "msg": "applying: ran runbook RB-CACHE-04: `pnctl cache harden vpa:resolve:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`"
       },
       {
         "at": "01:16",
@@ -1465,14 +1465,14 @@
     ],
     "rootCause": "upi-gateway deploy set a flat TTL of 300s on all vpa:resolve:* keys (was 1h with jitter) (commit eb88985). Hot vpa:resolve:* keys were evicted/expired together during salary day peak, causing a cache stampede onto vpa_registry in postgres and a Redis eviction storm.",
     "family": "redis-eviction-storm",
-    "fixThatWorked": "added ±20% TTL jitter and singleflight request coalescing on vpa:resolve:*; raised redis maxmemory 12GB → 20GB",
+    "fixThatWorked": "ran runbook RB-CACHE-04: `pnctl cache harden vpa:resolve:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`",
     "fixesThatFailed": [
       "restarted redis-cache-0",
       "scaled upi-gateway pods up"
     ],
     "resolvedBy": "Fatima Sheikh",
     "ttrMinutes": 41,
-    "postMortem": "Impact: p99 latency 6s for 51 min; 7,545 timeouts at checkout. Trigger: upi-gateway deploy set a flat TTL of 300s on all vpa:resolve:* keys (was 1h with jitter) (commit eb88985 by Sneha Kulkarni). Root cause: upi-gateway deploy set a flat TTL of 300s on all vpa:resolve:* keys (was 1h with jitter) (commit eb88985). Hot vpa:resolve:* keys were evicted/expired together during salary day peak, causing a cache stampede onto vpa_registry in postgres and a Redis eviction storm. Resolution: added ±20% TTL jitter and singleflight request coalescing on vpa:resolve:*; raised redis maxmemory 12GB → 20GB (by Fatima Sheikh, TTR 41 min). What did NOT work: restarted redis-cache-0 (cache came back empty; stampede got worse); scaled upi-gateway pods up (more concurrent cache misses hitting postgres). Action items: TTL jitter everywhere; Pre-scale redis-cache before salary day and sale events; Ban FLUSHALL in prod without approval."
+    "postMortem": "Impact: p99 latency 6s for 51 min; 7,545 timeouts at checkout. Trigger: upi-gateway deploy set a flat TTL of 300s on all vpa:resolve:* keys (was 1h with jitter) (commit eb88985 by Sneha Kulkarni). Root cause: upi-gateway deploy set a flat TTL of 300s on all vpa:resolve:* keys (was 1h with jitter) (commit eb88985). Hot vpa:resolve:* keys were evicted/expired together during salary day peak, causing a cache stampede onto vpa_registry in postgres and a Redis eviction storm. Resolution: ran runbook RB-CACHE-04: `pnctl cache harden vpa:resolve:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb` (by Fatima Sheikh, TTR 41 min). What did NOT work: restarted redis-cache-0 (cache came back empty; stampede got worse); scaled upi-gateway pods up (more concurrent cache misses hitting postgres). Action items: TTL jitter everywhere; Pre-scale redis-cache before salary day and sale events; Ban FLUSHALL in prod without approval."
   },
   {
     "id": "INC-2260",
@@ -1571,7 +1571,7 @@
       {
         "at": "14:33",
         "who": "Sneha Kulkarni",
-        "msg": "applying: reverted payments-api-config ConfigMap to the previous revision (kubectl rollout undo is not enough; re-applied config a73fe43) and reloaded"
+        "msg": "applying: ran runbook RB-REL-02: `pnctl config rollback payments-api-config` (kubectl rollout undo does not revert ConfigMaps)"
       },
       {
         "at": "14:40",
@@ -1581,14 +1581,14 @@
     ],
     "rootCause": "payments-api-config ConfigMap push set ratelimit.max_rps=50 (typo, meant 5000) (change f0171df by Karthik Iyer). Every request on the affected path failed deterministically with \"429 Too Many Requests: limit=50 rps (expected 5000)\".",
     "family": "bad-config-push",
-    "fixThatWorked": "reverted payments-api-config ConfigMap to the previous revision (kubectl rollout undo is not enough; re-applied config a73fe43) and reloaded",
+    "fixThatWorked": "ran runbook RB-REL-02: `pnctl config rollback payments-api-config` (kubectl rollout undo does not revert ConfigMaps)",
     "fixesThatFailed": [
       "rolled back the last payments-api image deploy",
       "restarted payments-api pods"
     ],
     "resolvedBy": "Sneha Kulkarni",
     "ttrMinutes": 91,
-    "postMortem": "Impact: 51,173 collect requests failed over 31 min. Trigger: payments-api-config ConfigMap push set ratelimit.max_rps=50 (typo, meant 5000) (commit f0171df by Karthik Iyer). Root cause: payments-api-config ConfigMap push set ratelimit.max_rps=50 (typo, meant 5000) (change f0171df by Karthik Iyer). Every request on the affected path failed deterministically with \"429 Too Many Requests: limit=50 rps (expected 5000)\". Resolution: reverted payments-api-config ConfigMap to the previous revision (kubectl rollout undo is not enough; re-applied config a73fe43) and reloaded (by Sneha Kulkarni, TTR 91 min). What did NOT work: rolled back the last payments-api image deploy (no effect — the change was runtime config, not code); restarted payments-api pods (flag/config re-evaluated identically on boot). Action items: Flags must start at <=5% rollout; Config schema validation in CI; Record config pushes as Grafana annotations."
+    "postMortem": "Impact: 51,173 collect requests failed over 31 min. Trigger: payments-api-config ConfigMap push set ratelimit.max_rps=50 (typo, meant 5000) (commit f0171df by Karthik Iyer). Root cause: payments-api-config ConfigMap push set ratelimit.max_rps=50 (typo, meant 5000) (change f0171df by Karthik Iyer). Every request on the affected path failed deterministically with \"429 Too Many Requests: limit=50 rps (expected 5000)\". Resolution: ran runbook RB-REL-02: `pnctl config rollback payments-api-config` (kubectl rollout undo does not revert ConfigMaps) (by Sneha Kulkarni, TTR 91 min). What did NOT work: rolled back the last payments-api image deploy (no effect — the change was runtime config, not code); restarted payments-api pods (flag/config re-evaluated identically on boot). Action items: Flags must start at <=5% rollout; Config schema validation in CI; Record config pushes as Grafana annotations."
   },
   {
     "id": "INC-2263",
@@ -1677,7 +1677,7 @@
       {
         "at": "04:21",
         "who": "Arjun Mehta",
-        "msg": "applying: renewed the cert with `cmctl renew auth-paynest-in`, restored Route53 IAM permission for cert-manager DNS-01"
+        "msg": "applying: ran runbook RB-SEC-01: restored the cert-manager Route53 IAM role, then `pnctl certs renew auth.paynest.in`"
       },
       {
         "at": "04:26",
@@ -1687,14 +1687,14 @@
     ],
     "rootCause": "cert-manager failed to renew the auth.paynest.in certificate (DNS-01 challenge denied after an IAM policy change). auth-svc failed TLS/auth for every dependent call.",
     "family": "tls-secret-expiry",
-    "fixThatWorked": "renewed the cert with `cmctl renew auth-paynest-in`, restored Route53 IAM permission for cert-manager DNS-01",
+    "fixThatWorked": "ran runbook RB-SEC-01: restored the cert-manager Route53 IAM role, then `pnctl certs renew auth.paynest.in`",
     "fixesThatFailed": [
       "rolled back the last auth-svc deploy",
       "restarted auth-svc pods"
     ],
     "resolvedBy": "Arjun Mehta",
     "ttrMinutes": 99,
-    "postMortem": "Impact: 25 min of failed logins/payments; 33,421 users affected. No internal change preceded it. Root cause: cert-manager failed to renew the auth.paynest.in certificate (DNS-01 challenge denied after an IAM policy change). auth-svc failed TLS/auth for every dependent call. Resolution: renewed the cert with `cmctl renew auth-paynest-in`, restored Route53 IAM permission for cert-manager DNS-01 (by Arjun Mehta, TTR 99 min). What did NOT work: rolled back the last auth-svc deploy (the credential is not in the image; no change); restarted auth-svc pods (pods re-mounted the same stale Secret (ExternalSecret had not synced)). Action items: Alert 14 days before any cert expiry; Rotations must trigger ExternalSecret sync + rolling reload; Runbook: credential incidents never need a code rollback."
+    "postMortem": "Impact: 25 min of failed logins/payments; 33,421 users affected. No internal change preceded it. Root cause: cert-manager failed to renew the auth.paynest.in certificate (DNS-01 challenge denied after an IAM policy change). auth-svc failed TLS/auth for every dependent call. Resolution: ran runbook RB-SEC-01: restored the cert-manager Route53 IAM role, then `pnctl certs renew auth.paynest.in` (by Arjun Mehta, TTR 99 min). What did NOT work: rolled back the last auth-svc deploy (the credential is not in the image; no change); restarted auth-svc pods (pods re-mounted the same stale Secret (ExternalSecret had not synced)). Action items: Alert 14 days before any cert expiry; Rotations must trigger ExternalSecret sync + rolling reload; Runbook: credential incidents never need a code rollback."
   },
   {
     "id": "INC-2265",
@@ -1774,7 +1774,7 @@
       {
         "at": "20:48",
         "who": "Karthik Iyer",
-        "msg": "applying: switched pgbouncer to transaction pooling for payments-api and lowered pool_size to 5"
+        "msg": "applying: ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api)"
       },
       {
         "at": "20:54",
@@ -1784,13 +1784,13 @@
     ],
     "rootCause": "payments-api deploy added a settlement-report background thread pool (8 threads) sharing the request DB pool (commit 496bdce). 30 pods x 8 workers x pool 20 = up to 4,800 connections against postgres max_connections=600 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection.",
     "family": "db-pool-exhaustion",
-    "fixThatWorked": "switched pgbouncer to transaction pooling for payments-api and lowered pool_size to 5",
+    "fixThatWorked": "ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api)",
     "fixesThatFailed": [
       "scaled payments-api HPA up by 50%"
     ],
     "resolvedBy": "Karthik Iyer",
     "ttrMinutes": 86,
-    "postMortem": "Impact: 46,320 failed UPI collect requests (~₹14 Cr GMV delayed). Trigger: payments-api deploy added a settlement-report background thread pool (8 threads) sharing the request DB pool (commit 496bdce by Priya Raman). Root cause: payments-api deploy added a settlement-report background thread pool (8 threads) sharing the request DB pool (commit 496bdce). 30 pods x 8 workers x pool 20 = up to 4,800 connections against postgres max_connections=600 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection. Resolution: switched pgbouncer to transaction pooling for payments-api and lowered pool_size to 5 (by Karthik Iyer, TTR 86 min). What did NOT work: scaled payments-api HPA up by 50% (more pods = more connections; postgres hit max_connections faster). Action items: Add CI check: workers x replicas x pool_size must stay below pgbouncer max_client_conn; Alert on pgbouncer cl_waiting > 50; Document that pod restarts do not fix pool exhaustion."
+    "postMortem": "Impact: 46,320 failed UPI collect requests (~₹14 Cr GMV delayed). Trigger: payments-api deploy added a settlement-report background thread pool (8 threads) sharing the request DB pool (commit 496bdce by Priya Raman). Root cause: payments-api deploy added a settlement-report background thread pool (8 threads) sharing the request DB pool (commit 496bdce). 30 pods x 8 workers x pool 20 = up to 4,800 connections against postgres max_connections=600 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection. Resolution: ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api) (by Karthik Iyer, TTR 86 min). What did NOT work: scaled payments-api HPA up by 50% (more pods = more connections; postgres hit max_connections faster). Action items: Add CI check: workers x replicas x pool_size must stay below pgbouncer max_client_conn; Alert on pgbouncer cl_waiting > 50; Document that pod restarts do not fix pool exhaustion."
   },
   {
     "id": "INC-2270",
@@ -1879,7 +1879,7 @@
       {
         "at": "12:44",
         "who": "Karthik Iyer",
-        "msg": "applying: reverted payments-api-config ConfigMap to the previous revision (kubectl rollout undo is not enough; re-applied config 934fcb5) and reloaded"
+        "msg": "applying: ran runbook RB-REL-02: `pnctl config rollback payments-api-config` (kubectl rollout undo does not revert ConfigMaps)"
       },
       {
         "at": "12:50",
@@ -1889,14 +1889,14 @@
     ],
     "rootCause": "payments-api-config ConfigMap push set ratelimit.max_rps=50 (typo, meant 5000) (change 9cb3344 by Rahul Verma). Every request on the affected path failed deterministically with \"429 Too Many Requests: limit=50 rps (expected 5000)\".",
     "family": "bad-config-push",
-    "fixThatWorked": "reverted payments-api-config ConfigMap to the previous revision (kubectl rollout undo is not enough; re-applied config 934fcb5) and reloaded",
+    "fixThatWorked": "ran runbook RB-REL-02: `pnctl config rollback payments-api-config` (kubectl rollout undo does not revert ConfigMaps)",
     "fixesThatFailed": [
       "restarted payments-api pods",
       "scaled payments-api up"
     ],
     "resolvedBy": "Karthik Iyer",
     "ttrMinutes": 78,
-    "postMortem": "Impact: 47,817 collect requests failed over 22 min. Trigger: payments-api-config ConfigMap push set ratelimit.max_rps=50 (typo, meant 5000) (commit 9cb3344 by Rahul Verma). Root cause: payments-api-config ConfigMap push set ratelimit.max_rps=50 (typo, meant 5000) (change 9cb3344 by Rahul Verma). Every request on the affected path failed deterministically with \"429 Too Many Requests: limit=50 rps (expected 5000)\". Resolution: reverted payments-api-config ConfigMap to the previous revision (kubectl rollout undo is not enough; re-applied config 934fcb5) and reloaded (by Karthik Iyer, TTR 78 min). What did NOT work: restarted payments-api pods (flag/config re-evaluated identically on boot); scaled payments-api up (errors are deterministic per request; more pods = more 500s). Action items: Flags must start at <=5% rollout; Config schema validation in CI; Record config pushes as Grafana annotations."
+    "postMortem": "Impact: 47,817 collect requests failed over 22 min. Trigger: payments-api-config ConfigMap push set ratelimit.max_rps=50 (typo, meant 5000) (commit 9cb3344 by Rahul Verma). Root cause: payments-api-config ConfigMap push set ratelimit.max_rps=50 (typo, meant 5000) (change 9cb3344 by Rahul Verma). Every request on the affected path failed deterministically with \"429 Too Many Requests: limit=50 rps (expected 5000)\". Resolution: ran runbook RB-REL-02: `pnctl config rollback payments-api-config` (kubectl rollout undo does not revert ConfigMaps) (by Karthik Iyer, TTR 78 min). What did NOT work: restarted payments-api pods (flag/config re-evaluated identically on boot); scaled payments-api up (errors are deterministic per request; more pods = more 500s). Action items: Flags must start at <=5% rollout; Config schema validation in CI; Record config pushes as Grafana annotations."
   },
   {
     "id": "INC-2273",
@@ -1987,7 +1987,7 @@
       {
         "at": "00:08",
         "who": "Rahul Verma",
-        "msg": "applying: enabled per-bank circuit breaker for npci-kotak (resilience4j, 50% failure threshold) and failed over Kotak routes to NPCI-DC2; cut ReqPay timeout 30s → 8s"
+        "msg": "applying: ran runbook RB-UPI-03: `pnctl upi failover --psp Kotak --route npci-dc2` (opens the npci-kotak breaker, routes Kotak via NPCI-DC2, ReqPay timeout 8s)"
       },
       {
         "at": "00:17",
@@ -1997,13 +1997,13 @@
     ],
     "rootCause": "Kotak remitter-bank switch degraded behind NPCI (external); no internal change. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for Kotak saturated the shared npci-client thread pool and dragged success rate down for every bank.",
     "family": "npci-bank-timeout",
-    "fixThatWorked": "enabled per-bank circuit breaker for npci-kotak (resilience4j, 50% failure threshold) and failed over Kotak routes to NPCI-DC2; cut ReqPay timeout 30s → 8s",
+    "fixThatWorked": "ran runbook RB-UPI-03: `pnctl upi failover --psp Kotak --route npci-dc2` (opens the npci-kotak breaker, routes Kotak via NPCI-DC2, ReqPay timeout 8s)",
     "fixesThatFailed": [
       "restarted upi-gateway pods"
     ],
     "resolvedBy": "Rahul Verma",
     "ttrMinutes": 108,
-    "postMortem": "Impact: 53,016 UPI transactions failed or went DEEMED; Kotak customers most affected. No internal change preceded it. Root cause: Kotak remitter-bank switch degraded behind NPCI (external); no internal change. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for Kotak saturated the shared npci-client thread pool and dragged success rate down for every bank. Resolution: enabled per-bank circuit breaker for npci-kotak (resilience4j, 50% failure threshold) and failed over Kotak routes to NPCI-DC2; cut ReqPay timeout 30s → 8s (by Rahul Verma, TTR 108 min). What did NOT work: restarted upi-gateway pods (timeouts returned immediately; cause is external). Action items: Per-bank bulkheads in npci-client; Auto circuit breaker per payer_psp; Status page template for partner-bank degradation."
+    "postMortem": "Impact: 53,016 UPI transactions failed or went DEEMED; Kotak customers most affected. No internal change preceded it. Root cause: Kotak remitter-bank switch degraded behind NPCI (external); no internal change. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for Kotak saturated the shared npci-client thread pool and dragged success rate down for every bank. Resolution: ran runbook RB-UPI-03: `pnctl upi failover --psp Kotak --route npci-dc2` (opens the npci-kotak breaker, routes Kotak via NPCI-DC2, ReqPay timeout 8s) (by Rahul Verma, TTR 108 min). What did NOT work: restarted upi-gateway pods (timeouts returned immediately; cause is external). Action items: Per-bank bulkheads in npci-client; Auto circuit breaker per payer_psp; Status page template for partner-bank degradation."
   },
   {
     "id": "INC-2275",
@@ -2072,7 +2072,7 @@
       {
         "at": "05:36",
         "who": "Arjun Mehta",
-        "msg": "applying: forced ExternalSecret resync and rolling restart of auth-svc so pods picked up new Vault DB creds"
+        "msg": "applying: ran runbook RB-SEC-02: `pnctl secrets resync auth-svc` (forces the ExternalSecret sync of the rotated Vault creds and rolls auth-svc)"
       },
       {
         "at": "05:43",
@@ -2082,11 +2082,11 @@
     ],
     "rootCause": "Vault rotated the auth-svc postgres credentials; running pods kept the expired lease. auth-svc failed TLS/auth for every dependent call.",
     "family": "tls-secret-expiry",
-    "fixThatWorked": "forced ExternalSecret resync and rolling restart of auth-svc so pods picked up new Vault DB creds",
+    "fixThatWorked": "ran runbook RB-SEC-02: `pnctl secrets resync auth-svc` (forces the ExternalSecret sync of the rotated Vault creds and rolls auth-svc)",
     "fixesThatFailed": [],
     "resolvedBy": "Arjun Mehta",
     "ttrMinutes": 73,
-    "postMortem": "Impact: 55 min of failed logins/payments; 11,585 users affected. Trigger: Vault rotated the auth-svc postgres credentials; running pods kept the expired lease (commit 4ba6ab9 by Rahul Verma). Root cause: Vault rotated the auth-svc postgres credentials; running pods kept the expired lease. auth-svc failed TLS/auth for every dependent call. Resolution: forced ExternalSecret resync and rolling restart of auth-svc so pods picked up new Vault DB creds (by Arjun Mehta, TTR 73 min). Action items: Alert 14 days before any cert expiry; Rotations must trigger ExternalSecret sync + rolling reload; Runbook: credential incidents never need a code rollback."
+    "postMortem": "Impact: 55 min of failed logins/payments; 11,585 users affected. Trigger: Vault rotated the auth-svc postgres credentials; running pods kept the expired lease (commit 4ba6ab9 by Rahul Verma). Root cause: Vault rotated the auth-svc postgres credentials; running pods kept the expired lease. auth-svc failed TLS/auth for every dependent call. Resolution: ran runbook RB-SEC-02: `pnctl secrets resync auth-svc` (forces the ExternalSecret sync of the rotated Vault creds and rolls auth-svc) (by Arjun Mehta, TTR 73 min). Action items: Alert 14 days before any cert expiry; Rotations must trigger ExternalSecret sync + rolling reload; Runbook: credential incidents never need a code rollback."
   },
   {
     "id": "INC-2281",
@@ -2177,7 +2177,7 @@
       {
         "at": "12:07",
         "who": "Arjun Mehta",
-        "msg": "applying: added ±20% TTL jitter and singleflight request coalescing on vpa:resolve:*; raised redis maxmemory 12GB → 20GB"
+        "msg": "applying: ran runbook RB-CACHE-04: `pnctl cache harden vpa:resolve:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`"
       },
       {
         "at": "12:13",
@@ -2187,13 +2187,13 @@
     ],
     "rootCause": "upi-gateway deploy started caching full merchant/user objects (~40KB each) instead of IDs (commit 415ee99). Hot vpa:resolve:* keys were evicted/expired together during salary day peak, causing a cache stampede onto vpa_registry in postgres and a Redis eviction storm.",
     "family": "redis-eviction-storm",
-    "fixThatWorked": "added ±20% TTL jitter and singleflight request coalescing on vpa:resolve:*; raised redis maxmemory 12GB → 20GB",
+    "fixThatWorked": "ran runbook RB-CACHE-04: `pnctl cache harden vpa:resolve:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`",
     "fixesThatFailed": [
       "scaled upi-gateway pods up"
     ],
     "resolvedBy": "Arjun Mehta",
     "ttrMinutes": 105,
-    "postMortem": "Impact: p99 latency 6s for 54 min; 17,578 timeouts at checkout. Trigger: upi-gateway deploy started caching full merchant/user objects (~40KB each) instead of IDs (commit 415ee99 by Priya Raman). Root cause: upi-gateway deploy started caching full merchant/user objects (~40KB each) instead of IDs (commit 415ee99). Hot vpa:resolve:* keys were evicted/expired together during salary day peak, causing a cache stampede onto vpa_registry in postgres and a Redis eviction storm. Resolution: added ±20% TTL jitter and singleflight request coalescing on vpa:resolve:*; raised redis maxmemory 12GB → 20GB (by Arjun Mehta, TTR 105 min). What did NOT work: scaled upi-gateway pods up (more concurrent cache misses hitting postgres). Action items: TTL jitter everywhere; Pre-scale redis-cache before salary day and sale events; Ban FLUSHALL in prod without approval."
+    "postMortem": "Impact: p99 latency 6s for 54 min; 17,578 timeouts at checkout. Trigger: upi-gateway deploy started caching full merchant/user objects (~40KB each) instead of IDs (commit 415ee99 by Priya Raman). Root cause: upi-gateway deploy started caching full merchant/user objects (~40KB each) instead of IDs (commit 415ee99). Hot vpa:resolve:* keys were evicted/expired together during salary day peak, causing a cache stampede onto vpa_registry in postgres and a Redis eviction storm. Resolution: ran runbook RB-CACHE-04: `pnctl cache harden vpa:resolve:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb` (by Arjun Mehta, TTR 105 min). What did NOT work: scaled upi-gateway pods up (more concurrent cache misses hitting postgres). Action items: TTL jitter everywhere; Pre-scale redis-cache before salary day and sale events; Ban FLUSHALL in prod without approval."
   },
   {
     "id": "INC-2285",
@@ -2262,7 +2262,7 @@
       {
         "at": "02:47",
         "who": "Arjun Mehta",
-        "msg": "applying: issued a new NPCI mTLS client cert from Vault PKI, updated the secret and reloaded upi-gateway"
+        "msg": "applying: ran runbook RB-SEC-04: `pnctl certs issue npci-client` (new NPCI mTLS client cert from Vault PKI) and reloaded upi-gateway"
       },
       {
         "at": "02:54",
@@ -2272,11 +2272,11 @@
     ],
     "rootCause": "mTLS client certificate used by upi-gateway to talk to NPCI expired. upi-gateway failed TLS/auth for every dependent call.",
     "family": "tls-secret-expiry",
-    "fixThatWorked": "issued a new NPCI mTLS client cert from Vault PKI, updated the secret and reloaded upi-gateway",
+    "fixThatWorked": "ran runbook RB-SEC-04: `pnctl certs issue npci-client` (new NPCI mTLS client cert from Vault PKI) and reloaded upi-gateway",
     "fixesThatFailed": [],
     "resolvedBy": "Arjun Mehta",
     "ttrMinutes": 22,
-    "postMortem": "Impact: 54 min of failed logins/payments; 69,722 users affected. Trigger: mTLS client certificate used by upi-gateway to talk to NPCI expired (commit f9eb4ea by Rohan Gupta). Root cause: mTLS client certificate used by upi-gateway to talk to NPCI expired. upi-gateway failed TLS/auth for every dependent call. Resolution: issued a new NPCI mTLS client cert from Vault PKI, updated the secret and reloaded upi-gateway (by Arjun Mehta, TTR 22 min). Action items: Alert 14 days before any cert expiry; Rotations must trigger ExternalSecret sync + rolling reload; Runbook: credential incidents never need a code rollback."
+    "postMortem": "Impact: 54 min of failed logins/payments; 69,722 users affected. Trigger: mTLS client certificate used by upi-gateway to talk to NPCI expired (commit f9eb4ea by Rohan Gupta). Root cause: mTLS client certificate used by upi-gateway to talk to NPCI expired. upi-gateway failed TLS/auth for every dependent call. Resolution: ran runbook RB-SEC-04: `pnctl certs issue npci-client` (new NPCI mTLS client cert from Vault PKI) and reloaded upi-gateway (by Arjun Mehta, TTR 22 min). Action items: Alert 14 days before any cert expiry; Rotations must trigger ExternalSecret sync + rolling reload; Runbook: credential incidents never need a code rollback."
   },
   {
     "id": "INC-2288",
@@ -2365,7 +2365,7 @@
       {
         "at": "12:02",
         "who": "Karthik Iyer",
-        "msg": "applying: turned off enable_fee_engine_v2 in Unleash (kill switch); 5xx dropped to baseline within 90s"
+        "msg": "applying: ran runbook RB-REL-01: `pnctl flags kill enable_fee_engine_v2` (Unleash kill switch); 5xx back to baseline within 90s"
       },
       {
         "at": "12:07",
@@ -2375,13 +2375,13 @@
     ],
     "rootCause": "Unleash flag enable_fee_engine_v2 flipped to 100% rollout (default rule) instead of 5% canary (change c865b0a by Vikram Nair). Every request on the affected path failed deterministically with \"KeyError: 'merchant_fee_bps' in fee_engine_v2.compute()\".",
     "family": "bad-config-push",
-    "fixThatWorked": "turned off enable_fee_engine_v2 in Unleash (kill switch); 5xx dropped to baseline within 90s",
+    "fixThatWorked": "ran runbook RB-REL-01: `pnctl flags kill enable_fee_engine_v2` (Unleash kill switch); 5xx back to baseline within 90s",
     "fixesThatFailed": [
       "restarted payments-api pods"
     ],
     "resolvedBy": "Karthik Iyer",
     "ttrMinutes": 56,
-    "postMortem": "Impact: 48,341 collect requests failed over 38 min. Trigger: Unleash flag enable_fee_engine_v2 flipped to 100% rollout (default rule) instead of 5% canary (commit c865b0a by Vikram Nair). Root cause: Unleash flag enable_fee_engine_v2 flipped to 100% rollout (default rule) instead of 5% canary (change c865b0a by Vikram Nair). Every request on the affected path failed deterministically with \"KeyError: 'merchant_fee_bps' in fee_engine_v2.compute()\". Resolution: turned off enable_fee_engine_v2 in Unleash (kill switch); 5xx dropped to baseline within 90s (by Karthik Iyer, TTR 56 min). What did NOT work: restarted payments-api pods (flag/config re-evaluated identically on boot). Action items: Flags must start at <=5% rollout; Config schema validation in CI; Record config pushes as Grafana annotations."
+    "postMortem": "Impact: 48,341 collect requests failed over 38 min. Trigger: Unleash flag enable_fee_engine_v2 flipped to 100% rollout (default rule) instead of 5% canary (commit c865b0a by Vikram Nair). Root cause: Unleash flag enable_fee_engine_v2 flipped to 100% rollout (default rule) instead of 5% canary (change c865b0a by Vikram Nair). Every request on the affected path failed deterministically with \"KeyError: 'merchant_fee_bps' in fee_engine_v2.compute()\". Resolution: ran runbook RB-REL-01: `pnctl flags kill enable_fee_engine_v2` (Unleash kill switch); 5xx back to baseline within 90s (by Karthik Iyer, TTR 56 min). What did NOT work: restarted payments-api pods (flag/config re-evaluated identically on boot). Action items: Flags must start at <=5% rollout; Config schema validation in CI; Record config pushes as Grafana annotations."
   },
   {
     "id": "INC-2292",
@@ -2471,7 +2471,7 @@
       {
         "at": "00:12",
         "who": "Priya Raman",
-        "msg": "applying: switched pgbouncer to transaction pooling for payments-api and lowered pool_size to 5"
+        "msg": "applying: ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api)"
       },
       {
         "at": "00:20",
@@ -2481,14 +2481,14 @@
     ],
     "rootCause": "payments-api deploy added a settlement-report background thread pool (8 threads) sharing the request DB pool (commit 241021b). 18 pods x 8 workers x pool 20 = up to 2,880 connections against postgres max_connections=800 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection.",
     "family": "db-pool-exhaustion",
-    "fixThatWorked": "switched pgbouncer to transaction pooling for payments-api and lowered pool_size to 5",
+    "fixThatWorked": "ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api)",
     "fixesThatFailed": [
       "restarted payments-api pods (kubectl rollout restart deploy/payments-api)",
       "raised postgres max_connections"
     ],
     "resolvedBy": "Priya Raman",
     "ttrMinutes": 39,
-    "postMortem": "Impact: 11,146 failed UPI collect requests (~₹12 Cr GMV delayed). Trigger: payments-api deploy added a settlement-report background thread pool (8 threads) sharing the request DB pool (commit 241021b by Fatima Sheikh). Root cause: payments-api deploy added a settlement-report background thread pool (8 threads) sharing the request DB pool (commit 241021b). 18 pods x 8 workers x pool 20 = up to 2,880 connections against postgres max_connections=800 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection. Resolution: switched pgbouncer to transaction pooling for payments-api and lowered pool_size to 5 (by Priya Raman, TTR 39 min). What did NOT work: restarted payments-api pods (kubectl rollout restart deploy/payments-api) (pool re-exhausted within 4 minutes as new workers reconnected); raised postgres max_connections (needs a primary restart; rejected, and RAM per connection made it risky). Action items: Add CI check: workers x replicas x pool_size must stay below pgbouncer max_client_conn; Alert on pgbouncer cl_waiting > 50; Document that pod restarts do not fix pool exhaustion."
+    "postMortem": "Impact: 11,146 failed UPI collect requests (~₹12 Cr GMV delayed). Trigger: payments-api deploy added a settlement-report background thread pool (8 threads) sharing the request DB pool (commit 241021b by Fatima Sheikh). Root cause: payments-api deploy added a settlement-report background thread pool (8 threads) sharing the request DB pool (commit 241021b). 18 pods x 8 workers x pool 20 = up to 2,880 connections against postgres max_connections=800 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection. Resolution: ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api) (by Priya Raman, TTR 39 min). What did NOT work: restarted payments-api pods (kubectl rollout restart deploy/payments-api) (pool re-exhausted within 4 minutes as new workers reconnected); raised postgres max_connections (needs a primary restart; rejected, and RAM per connection made it risky). Action items: Add CI check: workers x replicas x pool_size must stay below pgbouncer max_client_conn; Alert on pgbouncer cl_waiting > 50; Document that pod restarts do not fix pool exhaustion."
   },
   {
     "id": "INC-2298",
@@ -2578,7 +2578,7 @@
       {
         "at": "03:17",
         "who": "Karthik Iyer",
-        "msg": "applying: capped pool per worker (pool_size=5, max_overflow=5) via hotfix config and rolled ledger-svc; active connections fell from 600 to ~240"
+        "msg": "applying: ran runbook RB-PG-07: `pnctl db pool-cap ledger-svc --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls ledger-svc)"
       },
       {
         "at": "03:23",
@@ -2588,14 +2588,14 @@
     ],
     "rootCause": "ledger-svc deploy increased Hikari maximumPoolSize from 20 to 60 and raised replicas to 12 (commit 04e3c5f). 24 pods x 8 workers x pool 10 = up to 1,920 connections against postgres max_connections=600 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection.",
     "family": "db-pool-exhaustion",
-    "fixThatWorked": "capped pool per worker (pool_size=5, max_overflow=5) via hotfix config and rolled ledger-svc; active connections fell from 600 to ~240",
+    "fixThatWorked": "ran runbook RB-PG-07: `pnctl db pool-cap ledger-svc --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls ledger-svc)",
     "fixesThatFailed": [
       "restarted ledger-svc pods (kubectl rollout restart deploy/ledger-svc)",
       "raised postgres max_connections"
     ],
     "resolvedBy": "Karthik Iyer",
     "ttrMinutes": 94,
-    "postMortem": "Impact: 10,251 failed UPI collect requests (~₹12 Cr GMV delayed). Trigger: ledger-svc deploy increased Hikari maximumPoolSize from 20 to 60 and raised replicas to 12 (commit 04e3c5f by Ananya Das). Root cause: ledger-svc deploy increased Hikari maximumPoolSize from 20 to 60 and raised replicas to 12 (commit 04e3c5f). 24 pods x 8 workers x pool 10 = up to 1,920 connections against postgres max_connections=600 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection. Resolution: capped pool per worker (pool_size=5, max_overflow=5) via hotfix config and rolled ledger-svc; active connections fell from 600 to ~240 (by Karthik Iyer, TTR 94 min). What did NOT work: restarted ledger-svc pods (kubectl rollout restart deploy/ledger-svc) (pool re-exhausted within 4 minutes as new workers reconnected); raised postgres max_connections (needs a primary restart; rejected, and RAM per connection made it risky). Action items: Add CI check: workers x replicas x pool_size must stay below pgbouncer max_client_conn; Alert on pgbouncer cl_waiting > 50; Document that pod restarts do not fix pool exhaustion."
+    "postMortem": "Impact: 10,251 failed UPI collect requests (~₹12 Cr GMV delayed). Trigger: ledger-svc deploy increased Hikari maximumPoolSize from 20 to 60 and raised replicas to 12 (commit 04e3c5f by Ananya Das). Root cause: ledger-svc deploy increased Hikari maximumPoolSize from 20 to 60 and raised replicas to 12 (commit 04e3c5f). 24 pods x 8 workers x pool 10 = up to 1,920 connections against postgres max_connections=600 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection. Resolution: ran runbook RB-PG-07: `pnctl db pool-cap ledger-svc --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls ledger-svc) (by Karthik Iyer, TTR 94 min). What did NOT work: restarted ledger-svc pods (kubectl rollout restart deploy/ledger-svc) (pool re-exhausted within 4 minutes as new workers reconnected); raised postgres max_connections (needs a primary restart; rejected, and RAM per connection made it risky). Action items: Add CI check: workers x replicas x pool_size must stay below pgbouncer max_client_conn; Alert on pgbouncer cl_waiting > 50; Document that pod restarts do not fix pool exhaustion."
   },
   {
     "id": "INC-2304",
@@ -2685,7 +2685,7 @@
       {
         "at": "18:39",
         "who": "Priya Raman",
-        "msg": "applying: rolled back deploy 553a7c8 to restore WORKERS=4; connection count normalised in 3 minutes"
+        "msg": "applying: ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api)"
       },
       {
         "at": "18:43",
@@ -2695,14 +2695,14 @@
     ],
     "rootCause": "payments-api HPA maxReplicas raised from 15 to 30 ahead of a sale, each pod holding pool_size=20 (commit 553a7c8). 30 pods x 8 workers x pool 20 = up to 4,800 connections against postgres max_connections=500 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection.",
     "family": "db-pool-exhaustion",
-    "fixThatWorked": "rolled back deploy 553a7c8 to restore WORKERS=4; connection count normalised in 3 minutes",
+    "fixThatWorked": "ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api)",
     "fixesThatFailed": [
       "raised postgres max_connections",
       "scaled payments-api HPA up by 50%"
     ],
     "resolvedBy": "Priya Raman",
     "ttrMinutes": 99,
-    "postMortem": "Impact: 38,342 failed UPI collect requests (~₹14 Cr GMV delayed). Trigger: payments-api HPA maxReplicas raised from 15 to 30 ahead of a sale, each pod holding pool_size=20 (commit 553a7c8 by Sneha Kulkarni). Root cause: payments-api HPA maxReplicas raised from 15 to 30 ahead of a sale, each pod holding pool_size=20 (commit 553a7c8). 30 pods x 8 workers x pool 20 = up to 4,800 connections against postgres max_connections=500 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection. Resolution: rolled back deploy 553a7c8 to restore WORKERS=4; connection count normalised in 3 minutes (by Priya Raman, TTR 99 min). What did NOT work: raised postgres max_connections (needs a primary restart; rejected, and RAM per connection made it risky); scaled payments-api HPA up by 50% (more pods = more connections; postgres hit max_connections faster). Action items: Add CI check: workers x replicas x pool_size must stay below pgbouncer max_client_conn; Alert on pgbouncer cl_waiting > 50; Document that pod restarts do not fix pool exhaustion."
+    "postMortem": "Impact: 38,342 failed UPI collect requests (~₹14 Cr GMV delayed). Trigger: payments-api HPA maxReplicas raised from 15 to 30 ahead of a sale, each pod holding pool_size=20 (commit 553a7c8 by Sneha Kulkarni). Root cause: payments-api HPA maxReplicas raised from 15 to 30 ahead of a sale, each pod holding pool_size=20 (commit 553a7c8). 30 pods x 8 workers x pool 20 = up to 4,800 connections against postgres max_connections=500 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection. Resolution: ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api) (by Priya Raman, TTR 99 min). What did NOT work: raised postgres max_connections (needs a primary restart; rejected, and RAM per connection made it risky); scaled payments-api HPA up by 50% (more pods = more connections; postgres hit max_connections faster). Action items: Add CI check: workers x replicas x pool_size must stay below pgbouncer max_client_conn; Alert on pgbouncer cl_waiting > 50; Document that pod restarts do not fix pool exhaustion."
   },
   {
     "id": "INC-2310",
@@ -2783,7 +2783,7 @@
       {
         "at": "19:07",
         "who": "Fatima Sheikh",
-        "msg": "applying: opened the BoB circuit breaker manually, routed BoB via the secondary NPCI endpoint and isolated it in a bulkhead thread pool"
+        "msg": "applying: ran runbook RB-UPI-03: `pnctl upi failover --psp BoB --route npci-dc2` (opens the npci-bob breaker, routes BoB via NPCI-DC2, ReqPay timeout 8s)"
       },
       {
         "at": "19:14",
@@ -2793,13 +2793,13 @@
     ],
     "rootCause": "BoB remitter-bank switch degraded behind NPCI (external); no internal change. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for BoB saturated the shared npci-client thread pool and dragged success rate down for every bank.",
     "family": "npci-bank-timeout",
-    "fixThatWorked": "opened the BoB circuit breaker manually, routed BoB via the secondary NPCI endpoint and isolated it in a bulkhead thread pool",
+    "fixThatWorked": "ran runbook RB-UPI-03: `pnctl upi failover --psp BoB --route npci-dc2` (opens the npci-bob breaker, routes BoB via NPCI-DC2, ReqPay timeout 8s)",
     "fixesThatFailed": [
       "bulk-retried failed ReqPay calls"
     ],
     "resolvedBy": "Fatima Sheikh",
     "ttrMinutes": 76,
-    "postMortem": "Impact: 1,20,129 UPI transactions failed or went DEEMED; BoB customers most affected. Trigger: upi-gateway deploy: refactored retry helper (unrelated red herring) (commit a43af85 by Meera Pillai). Root cause: BoB remitter-bank switch degraded behind NPCI (external); no internal change. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for BoB saturated the shared npci-client thread pool and dragged success rate down for every bank. Resolution: opened the BoB circuit breaker manually, routed BoB via the secondary NPCI endpoint and isolated it in a bulkhead thread pool (by Fatima Sheikh, TTR 76 min). What did NOT work: bulk-retried failed ReqPay calls (risk of duplicate debits; stopped by payments lead). Action items: Per-bank bulkheads in npci-client; Auto circuit breaker per payer_psp; Status page template for partner-bank degradation."
+    "postMortem": "Impact: 1,20,129 UPI transactions failed or went DEEMED; BoB customers most affected. Trigger: upi-gateway deploy: refactored retry helper (unrelated red herring) (commit a43af85 by Meera Pillai). Root cause: BoB remitter-bank switch degraded behind NPCI (external); no internal change. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for BoB saturated the shared npci-client thread pool and dragged success rate down for every bank. Resolution: ran runbook RB-UPI-03: `pnctl upi failover --psp BoB --route npci-dc2` (opens the npci-bob breaker, routes BoB via NPCI-DC2, ReqPay timeout 8s) (by Fatima Sheikh, TTR 76 min). What did NOT work: bulk-retried failed ReqPay calls (risk of duplicate debits; stopped by payments lead). Action items: Per-bank bulkheads in npci-client; Auto circuit breaker per payer_psp; Status page template for partner-bank degradation."
   },
   {
     "id": "INC-2316",
@@ -2900,7 +2900,7 @@
       {
         "at": "21:54",
         "who": "Arjun Mehta",
-        "msg": "applying: added ±20% TTL jitter and singleflight request coalescing on merchant:cfg:*; raised redis maxmemory 8GB → 16GB"
+        "msg": "applying: ran runbook RB-CACHE-04: `pnctl cache harden merchant:cfg:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`"
       },
       {
         "at": "21:59",
@@ -2910,14 +2910,14 @@
     ],
     "rootCause": "payments-api deploy set a flat TTL of 300s on all merchant:cfg:* keys (was 1h with jitter) (commit c64fba7). Hot merchant:cfg:* keys were evicted/expired together during salary day peak, causing a cache stampede onto merchant_config in postgres and a Redis eviction storm.",
     "family": "redis-eviction-storm",
-    "fixThatWorked": "added ±20% TTL jitter and singleflight request coalescing on merchant:cfg:*; raised redis maxmemory 8GB → 16GB",
+    "fixThatWorked": "ran runbook RB-CACHE-04: `pnctl cache harden merchant:cfg:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`",
     "fixesThatFailed": [
       "scaled payments-api pods up",
       "FLUSHALL on redis-cache to clear memory"
     ],
     "resolvedBy": "Arjun Mehta",
     "ttrMinutes": 70,
-    "postMortem": "Impact: p99 latency 6s for 29 min; 20,058 timeouts at checkout. Trigger: payments-api deploy set a flat TTL of 300s on all merchant:cfg:* keys (was 1h with jitter) (commit c64fba7 by Sneha Kulkarni). Root cause: payments-api deploy set a flat TTL of 300s on all merchant:cfg:* keys (was 1h with jitter) (commit c64fba7). Hot merchant:cfg:* keys were evicted/expired together during salary day peak, causing a cache stampede onto merchant_config in postgres and a Redis eviction storm. Resolution: added ±20% TTL jitter and singleflight request coalescing on merchant:cfg:*; raised redis maxmemory 8GB → 16GB (by Arjun Mehta, TTR 70 min). What did NOT work: scaled payments-api pods up (more concurrent cache misses hitting postgres); FLUSHALL on redis-cache to clear memory (cold cache doubled DB load; destructive and made latency worse). Action items: TTL jitter everywhere; Pre-scale redis-cache before salary day and sale events; Ban FLUSHALL in prod without approval."
+    "postMortem": "Impact: p99 latency 6s for 29 min; 20,058 timeouts at checkout. Trigger: payments-api deploy set a flat TTL of 300s on all merchant:cfg:* keys (was 1h with jitter) (commit c64fba7 by Sneha Kulkarni). Root cause: payments-api deploy set a flat TTL of 300s on all merchant:cfg:* keys (was 1h with jitter) (commit c64fba7). Hot merchant:cfg:* keys were evicted/expired together during salary day peak, causing a cache stampede onto merchant_config in postgres and a Redis eviction storm. Resolution: ran runbook RB-CACHE-04: `pnctl cache harden merchant:cfg:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb` (by Arjun Mehta, TTR 70 min). What did NOT work: scaled payments-api pods up (more concurrent cache misses hitting postgres); FLUSHALL on redis-cache to clear memory (cold cache doubled DB load; destructive and made latency worse). Action items: TTL jitter everywhere; Pre-scale redis-cache before salary day and sale events; Ban FLUSHALL in prod without approval."
   },
   {
     "id": "INC-2320",
@@ -3006,7 +3006,7 @@
       {
         "at": "15:37",
         "who": "Karthik Iyer",
-        "msg": "applying: reverted payments-api-config ConfigMap to the previous revision (kubectl rollout undo is not enough; re-applied config 12e75f7) and reloaded"
+        "msg": "applying: ran runbook RB-REL-02: `pnctl config rollback payments-api-config` (kubectl rollout undo does not revert ConfigMaps)"
       },
       {
         "at": "15:43",
@@ -3016,14 +3016,14 @@
     ],
     "rootCause": "payments-api-config ConfigMap push set ratelimit.max_rps=50 (typo, meant 5000) (change 3e228c8 by Priya Raman). Every request on the affected path failed deterministically with \"429 Too Many Requests: limit=50 rps (expected 5000)\".",
     "family": "bad-config-push",
-    "fixThatWorked": "reverted payments-api-config ConfigMap to the previous revision (kubectl rollout undo is not enough; re-applied config 12e75f7) and reloaded",
+    "fixThatWorked": "ran runbook RB-REL-02: `pnctl config rollback payments-api-config` (kubectl rollout undo does not revert ConfigMaps)",
     "fixesThatFailed": [
       "restarted payments-api pods",
       "scaled payments-api up"
     ],
     "resolvedBy": "Karthik Iyer",
     "ttrMinutes": 116,
-    "postMortem": "Impact: 54,639 collect requests failed over 39 min. Trigger: payments-api-config ConfigMap push set ratelimit.max_rps=50 (typo, meant 5000) (commit 3e228c8 by Priya Raman). Root cause: payments-api-config ConfigMap push set ratelimit.max_rps=50 (typo, meant 5000) (change 3e228c8 by Priya Raman). Every request on the affected path failed deterministically with \"429 Too Many Requests: limit=50 rps (expected 5000)\". Resolution: reverted payments-api-config ConfigMap to the previous revision (kubectl rollout undo is not enough; re-applied config 12e75f7) and reloaded (by Karthik Iyer, TTR 116 min). What did NOT work: restarted payments-api pods (flag/config re-evaluated identically on boot); scaled payments-api up (errors are deterministic per request; more pods = more 500s). Action items: Flags must start at <=5% rollout; Config schema validation in CI; Record config pushes as Grafana annotations."
+    "postMortem": "Impact: 54,639 collect requests failed over 39 min. Trigger: payments-api-config ConfigMap push set ratelimit.max_rps=50 (typo, meant 5000) (commit 3e228c8 by Priya Raman). Root cause: payments-api-config ConfigMap push set ratelimit.max_rps=50 (typo, meant 5000) (change 3e228c8 by Priya Raman). Every request on the affected path failed deterministically with \"429 Too Many Requests: limit=50 rps (expected 5000)\". Resolution: ran runbook RB-REL-02: `pnctl config rollback payments-api-config` (kubectl rollout undo does not revert ConfigMaps) (by Karthik Iyer, TTR 116 min). What did NOT work: restarted payments-api pods (flag/config re-evaluated identically on boot); scaled payments-api up (errors are deterministic per request; more pods = more 500s). Action items: Flags must start at <=5% rollout; Config schema validation in CI; Record config pushes as Grafana annotations."
   },
   {
     "id": "INC-2325",
@@ -3114,7 +3114,7 @@
       {
         "at": "19:06",
         "who": "Karthik Iyer",
-        "msg": "applying: pinned notif-worker replicas to 12 (= partitions), enabled static membership and raised max.poll.interval.ms to 600s"
+        "msg": "applying: ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count)"
       },
       {
         "at": "19:12",
@@ -3124,13 +3124,13 @@
     ],
     "rootCause": "kafka rolling upgrade restarted kafka-2 (group coordinator), triggering a group rebalance with the eager assignor (e1e7b79). Consumers exceeded max.poll.interval.ms or were revoked repeatedly, putting notif-worker into a partition-rebalance loop so lag on payment.events kept growing.",
     "family": "kafka-consumer-lag",
-    "fixThatWorked": "pinned notif-worker replicas to 12 (= partitions), enabled static membership and raised max.poll.interval.ms to 600s",
+    "fixThatWorked": "ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count)",
     "fixesThatFailed": [
       "reset consumer group offsets to latest"
     ],
     "resolvedBy": "Karthik Iyer",
     "ttrMinutes": 94,
-    "postMortem": "Impact: 2,58,000 payment notifications delayed up to 66 min; support tickets spiked. Trigger: kafka rolling upgrade restarted kafka-2 (group coordinator), triggering a group rebalance with the eager assignor (commit e1e7b79 by Aditya Joshi). Root cause: kafka rolling upgrade restarted kafka-2 (group coordinator), triggering a group rebalance with the eager assignor (e1e7b79). Consumers exceeded max.poll.interval.ms or were revoked repeatedly, putting notif-worker into a partition-rebalance loop so lag on payment.events kept growing. Resolution: pinned notif-worker replicas to 12 (= partitions), enabled static membership and raised max.poll.interval.ms to 600s (by Karthik Iyer, TTR 94 min). What did NOT work: reset consumer group offsets to latest (would skip ~2,58,000 payment notifications; destructive, needed approval and was reverted). Action items: Cooperative rebalancing for all consumers; Alert on consumer group generation churn; Replica cap = partition count."
+    "postMortem": "Impact: 2,58,000 payment notifications delayed up to 66 min; support tickets spiked. Trigger: kafka rolling upgrade restarted kafka-2 (group coordinator), triggering a group rebalance with the eager assignor (commit e1e7b79 by Aditya Joshi). Root cause: kafka rolling upgrade restarted kafka-2 (group coordinator), triggering a group rebalance with the eager assignor (e1e7b79). Consumers exceeded max.poll.interval.ms or were revoked repeatedly, putting notif-worker into a partition-rebalance loop so lag on payment.events kept growing. Resolution: ran runbook RB-KAFKA-02: `pnctl kafka stabilize notif-worker` (CooperativeStickyAssignor + static group.instance.id, max.poll.records=500, replicas capped at partition count) (by Karthik Iyer, TTR 94 min). What did NOT work: reset consumer group offsets to latest (would skip ~2,58,000 payment notifications; destructive, needed approval and was reverted). Action items: Cooperative rebalancing for all consumers; Alert on consumer group generation churn; Replica cap = partition count."
   },
   {
     "id": "INC-2330",
@@ -3221,7 +3221,7 @@
       {
         "at": "03:36",
         "who": "Rahul Verma",
-        "msg": "applying: enabled per-bank circuit breaker for npci-bob (resilience4j, 50% failure threshold) and failed over BoB routes to NPCI-DC2; cut ReqPay timeout 30s → 8s"
+        "msg": "applying: ran runbook RB-UPI-03: `pnctl upi failover --psp BoB --route npci-dc2` (opens the npci-bob breaker, routes BoB via NPCI-DC2, ReqPay timeout 8s)"
       },
       {
         "at": "03:45",
@@ -3231,14 +3231,14 @@
     ],
     "rootCause": "BoB remitter-bank switch degraded behind NPCI (external); no internal change. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for BoB saturated the shared npci-client thread pool and dragged success rate down for every bank.",
     "family": "npci-bank-timeout",
-    "fixThatWorked": "enabled per-bank circuit breaker for npci-bob (resilience4j, 50% failure threshold) and failed over BoB routes to NPCI-DC2; cut ReqPay timeout 30s → 8s",
+    "fixThatWorked": "ran runbook RB-UPI-03: `pnctl upi failover --psp BoB --route npci-dc2` (opens the npci-bob breaker, routes BoB via NPCI-DC2, ReqPay timeout 8s)",
     "fixesThatFailed": [
       "bulk-retried failed ReqPay calls",
       "raised npci-client timeout 30s → 60s"
     ],
     "resolvedBy": "Rahul Verma",
     "ttrMinutes": 100,
-    "postMortem": "Impact: 29,200 UPI transactions failed or went DEEMED; BoB customers most affected. No internal change preceded it. Root cause: BoB remitter-bank switch degraded behind NPCI (external); no internal change. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for BoB saturated the shared npci-client thread pool and dragged success rate down for every bank. Resolution: enabled per-bank circuit breaker for npci-bob (resilience4j, 50% failure threshold) and failed over BoB routes to NPCI-DC2; cut ReqPay timeout 30s → 8s (by Rahul Verma, TTR 100 min). What did NOT work: bulk-retried failed ReqPay calls (risk of duplicate debits; stopped by payments lead); raised npci-client timeout 30s → 60s (threads held twice as long, starvation spread to healthy banks). Action items: Per-bank bulkheads in npci-client; Auto circuit breaker per payer_psp; Status page template for partner-bank degradation."
+    "postMortem": "Impact: 29,200 UPI transactions failed or went DEEMED; BoB customers most affected. No internal change preceded it. Root cause: BoB remitter-bank switch degraded behind NPCI (external); no internal change. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for BoB saturated the shared npci-client thread pool and dragged success rate down for every bank. Resolution: ran runbook RB-UPI-03: `pnctl upi failover --psp BoB --route npci-dc2` (opens the npci-bob breaker, routes BoB via NPCI-DC2, ReqPay timeout 8s) (by Rahul Verma, TTR 100 min). What did NOT work: bulk-retried failed ReqPay calls (risk of duplicate debits; stopped by payments lead); raised npci-client timeout 30s → 60s (threads held twice as long, starvation spread to healthy banks). Action items: Per-bank bulkheads in npci-client; Auto circuit breaker per payer_psp; Status page template for partner-bank degradation."
   },
   {
     "id": "INC-2333",
@@ -3317,7 +3317,7 @@
       {
         "at": "17:49",
         "who": "Karthik Iyer",
-        "msg": "applying: turned off enable_fee_engine_v2 in Unleash (kill switch); 5xx dropped to baseline within 90s"
+        "msg": "applying: ran runbook RB-REL-01: `pnctl flags kill enable_fee_engine_v2` (Unleash kill switch); 5xx back to baseline within 90s"
       },
       {
         "at": "17:58",
@@ -3327,13 +3327,13 @@
     ],
     "rootCause": "Unleash flag enable_fee_engine_v2 flipped to 100% rollout (default rule) instead of 5% canary (change bfc405c by Meera Pillai). Every request on the affected path failed deterministically with \"KeyError: 'merchant_fee_bps' in fee_engine_v2.compute()\".",
     "family": "bad-config-push",
-    "fixThatWorked": "turned off enable_fee_engine_v2 in Unleash (kill switch); 5xx dropped to baseline within 90s",
+    "fixThatWorked": "ran runbook RB-REL-01: `pnctl flags kill enable_fee_engine_v2` (Unleash kill switch); 5xx back to baseline within 90s",
     "fixesThatFailed": [
       "scaled payments-api up"
     ],
     "resolvedBy": "Karthik Iyer",
     "ttrMinutes": 55,
-    "postMortem": "Impact: 10,724 collect requests failed over 21 min. Trigger: Unleash flag enable_fee_engine_v2 flipped to 100% rollout (default rule) instead of 5% canary (commit bfc405c by Meera Pillai). Root cause: Unleash flag enable_fee_engine_v2 flipped to 100% rollout (default rule) instead of 5% canary (change bfc405c by Meera Pillai). Every request on the affected path failed deterministically with \"KeyError: 'merchant_fee_bps' in fee_engine_v2.compute()\". Resolution: turned off enable_fee_engine_v2 in Unleash (kill switch); 5xx dropped to baseline within 90s (by Karthik Iyer, TTR 55 min). What did NOT work: scaled payments-api up (errors are deterministic per request; more pods = more 500s). Action items: Flags must start at <=5% rollout; Config schema validation in CI; Record config pushes as Grafana annotations."
+    "postMortem": "Impact: 10,724 collect requests failed over 21 min. Trigger: Unleash flag enable_fee_engine_v2 flipped to 100% rollout (default rule) instead of 5% canary (commit bfc405c by Meera Pillai). Root cause: Unleash flag enable_fee_engine_v2 flipped to 100% rollout (default rule) instead of 5% canary (change bfc405c by Meera Pillai). Every request on the affected path failed deterministically with \"KeyError: 'merchant_fee_bps' in fee_engine_v2.compute()\". Resolution: ran runbook RB-REL-01: `pnctl flags kill enable_fee_engine_v2` (Unleash kill switch); 5xx back to baseline within 90s (by Karthik Iyer, TTR 55 min). What did NOT work: scaled payments-api up (errors are deterministic per request; more pods = more 500s). Action items: Flags must start at <=5% rollout; Config schema validation in CI; Record config pushes as Grafana annotations."
   },
   {
     "id": "INC-2336",
@@ -3424,7 +3424,7 @@
       {
         "at": "12:51",
         "who": "Rahul Verma",
-        "msg": "applying: enabled per-bank circuit breaker for npci-icici (resilience4j, 50% failure threshold) and failed over ICICI routes to NPCI-DC2; cut ReqPay timeout 30s → 8s"
+        "msg": "applying: ran runbook RB-UPI-03: `pnctl upi failover --psp ICICI --route npci-dc2` (opens the npci-icici breaker, routes ICICI via NPCI-DC2, ReqPay timeout 8s)"
       },
       {
         "at": "12:55",
@@ -3434,14 +3434,14 @@
     ],
     "rootCause": "ICICI remitter-bank switch degraded behind NPCI (external); no internal change. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for ICICI saturated the shared npci-client thread pool and dragged success rate down for every bank.",
     "family": "npci-bank-timeout",
-    "fixThatWorked": "enabled per-bank circuit breaker for npci-icici (resilience4j, 50% failure threshold) and failed over ICICI routes to NPCI-DC2; cut ReqPay timeout 30s → 8s",
+    "fixThatWorked": "ran runbook RB-UPI-03: `pnctl upi failover --psp ICICI --route npci-dc2` (opens the npci-icici breaker, routes ICICI via NPCI-DC2, ReqPay timeout 8s)",
     "fixesThatFailed": [
       "rolled back the latest upi-gateway deploy",
       "raised npci-client timeout 30s → 60s"
     ],
     "resolvedBy": "Rahul Verma",
     "ttrMinutes": 109,
-    "postMortem": "Impact: 1,02,416 UPI transactions failed or went DEEMED; ICICI customers most affected. Trigger: upi-gateway deploy: refactored retry helper (unrelated red herring) (commit 86c5e44 by Rahul Verma). Root cause: ICICI remitter-bank switch degraded behind NPCI (external); no internal change. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for ICICI saturated the shared npci-client thread pool and dragged success rate down for every bank. Resolution: enabled per-bank circuit breaker for npci-icici (resilience4j, 50% failure threshold) and failed over ICICI routes to NPCI-DC2; cut ReqPay timeout 30s → 8s (by Rahul Verma, TTR 109 min). What did NOT work: rolled back the latest upi-gateway deploy (no change; the deploy was unrelated); raised npci-client timeout 30s → 60s (threads held twice as long, starvation spread to healthy banks). Action items: Per-bank bulkheads in npci-client; Auto circuit breaker per payer_psp; Status page template for partner-bank degradation."
+    "postMortem": "Impact: 1,02,416 UPI transactions failed or went DEEMED; ICICI customers most affected. Trigger: upi-gateway deploy: refactored retry helper (unrelated red herring) (commit 86c5e44 by Rahul Verma). Root cause: ICICI remitter-bank switch degraded behind NPCI (external); no internal change. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for ICICI saturated the shared npci-client thread pool and dragged success rate down for every bank. Resolution: ran runbook RB-UPI-03: `pnctl upi failover --psp ICICI --route npci-dc2` (opens the npci-icici breaker, routes ICICI via NPCI-DC2, ReqPay timeout 8s) (by Rahul Verma, TTR 109 min). What did NOT work: rolled back the latest upi-gateway deploy (no change; the deploy was unrelated); raised npci-client timeout 30s → 60s (threads held twice as long, starvation spread to healthy banks). Action items: Per-bank bulkheads in npci-client; Auto circuit breaker per payer_psp; Status page template for partner-bank degradation."
   },
   {
     "id": "INC-2340",
@@ -3522,7 +3522,7 @@
       {
         "at": "02:50",
         "who": "Fatima Sheikh",
-        "msg": "applying: opened the BoB circuit breaker manually, routed BoB via the secondary NPCI endpoint and isolated it in a bulkhead thread pool"
+        "msg": "applying: ran runbook RB-UPI-03: `pnctl upi failover --psp BoB --route npci-dc2` (opens the npci-bob breaker, routes BoB via NPCI-DC2, ReqPay timeout 8s)"
       },
       {
         "at": "02:58",
@@ -3532,13 +3532,13 @@
     ],
     "rootCause": "BoB remitter-bank switch degraded behind NPCI (external); no internal change. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for BoB saturated the shared npci-client thread pool and dragged success rate down for every bank.",
     "family": "npci-bank-timeout",
-    "fixThatWorked": "opened the BoB circuit breaker manually, routed BoB via the secondary NPCI endpoint and isolated it in a bulkhead thread pool",
+    "fixThatWorked": "ran runbook RB-UPI-03: `pnctl upi failover --psp BoB --route npci-dc2` (opens the npci-bob breaker, routes BoB via NPCI-DC2, ReqPay timeout 8s)",
     "fixesThatFailed": [
       "restarted upi-gateway pods"
     ],
     "resolvedBy": "Fatima Sheikh",
     "ttrMinutes": 55,
-    "postMortem": "Impact: 1,14,486 UPI transactions failed or went DEEMED; BoB customers most affected. Trigger: upi-gateway deploy: refactored retry helper (unrelated red herring) (commit 0c78e66 by Rahul Verma). Root cause: BoB remitter-bank switch degraded behind NPCI (external); no internal change. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for BoB saturated the shared npci-client thread pool and dragged success rate down for every bank. Resolution: opened the BoB circuit breaker manually, routed BoB via the secondary NPCI endpoint and isolated it in a bulkhead thread pool (by Fatima Sheikh, TTR 55 min). What did NOT work: restarted upi-gateway pods (timeouts returned immediately; cause is external). Action items: Per-bank bulkheads in npci-client; Auto circuit breaker per payer_psp; Status page template for partner-bank degradation."
+    "postMortem": "Impact: 1,14,486 UPI transactions failed or went DEEMED; BoB customers most affected. Trigger: upi-gateway deploy: refactored retry helper (unrelated red herring) (commit 0c78e66 by Rahul Verma). Root cause: BoB remitter-bank switch degraded behind NPCI (external); no internal change. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for BoB saturated the shared npci-client thread pool and dragged success rate down for every bank. Resolution: ran runbook RB-UPI-03: `pnctl upi failover --psp BoB --route npci-dc2` (opens the npci-bob breaker, routes BoB via NPCI-DC2, ReqPay timeout 8s) (by Fatima Sheikh, TTR 55 min). What did NOT work: restarted upi-gateway pods (timeouts returned immediately; cause is external). Action items: Per-bank bulkheads in npci-client; Auto circuit breaker per payer_psp; Status page template for partner-bank degradation."
   },
   {
     "id": "INC-2345",
@@ -3627,7 +3627,7 @@
       {
         "at": "04:03",
         "who": "Karthik Iyer",
-        "msg": "applying: reverted payments-api-config ConfigMap to the previous revision (kubectl rollout undo is not enough; re-applied config bbffd5a) and reloaded"
+        "msg": "applying: ran runbook RB-REL-02: `pnctl config rollback payments-api-config` (kubectl rollout undo does not revert ConfigMaps)"
       },
       {
         "at": "04:11",
@@ -3637,14 +3637,14 @@
     ],
     "rootCause": "payments-api-config ConfigMap push with typo in ledger_svc_url (\".cluster.loca\") (change 8752662 by Aditya Joshi). Every request on the affected path failed deterministically with \"ConnectionError: HTTPConnectionPool(host='ledger-svc.payments.svc.clus\".",
     "family": "bad-config-push",
-    "fixThatWorked": "reverted payments-api-config ConfigMap to the previous revision (kubectl rollout undo is not enough; re-applied config bbffd5a) and reloaded",
+    "fixThatWorked": "ran runbook RB-REL-02: `pnctl config rollback payments-api-config` (kubectl rollout undo does not revert ConfigMaps)",
     "fixesThatFailed": [
       "scaled payments-api up",
       "restarted payments-api pods"
     ],
     "resolvedBy": "Karthik Iyer",
     "ttrMinutes": 73,
-    "postMortem": "Impact: 64,122 collect requests failed over 31 min. Trigger: payments-api-config ConfigMap push with typo in ledger_svc_url (\".cluster.loca\") (commit 8752662 by Aditya Joshi). Root cause: payments-api-config ConfigMap push with typo in ledger_svc_url (\".cluster.loca\") (change 8752662 by Aditya Joshi). Every request on the affected path failed deterministically with \"ConnectionError: HTTPConnectionPool(host='ledger-svc.payments.svc.clus\". Resolution: reverted payments-api-config ConfigMap to the previous revision (kubectl rollout undo is not enough; re-applied config bbffd5a) and reloaded (by Karthik Iyer, TTR 73 min). What did NOT work: scaled payments-api up (errors are deterministic per request; more pods = more 500s); restarted payments-api pods (flag/config re-evaluated identically on boot). Action items: Flags must start at <=5% rollout; Config schema validation in CI; Record config pushes as Grafana annotations."
+    "postMortem": "Impact: 64,122 collect requests failed over 31 min. Trigger: payments-api-config ConfigMap push with typo in ledger_svc_url (\".cluster.loca\") (commit 8752662 by Aditya Joshi). Root cause: payments-api-config ConfigMap push with typo in ledger_svc_url (\".cluster.loca\") (change 8752662 by Aditya Joshi). Every request on the affected path failed deterministically with \"ConnectionError: HTTPConnectionPool(host='ledger-svc.payments.svc.clus\". Resolution: ran runbook RB-REL-02: `pnctl config rollback payments-api-config` (kubectl rollout undo does not revert ConfigMaps) (by Karthik Iyer, TTR 73 min). What did NOT work: scaled payments-api up (errors are deterministic per request; more pods = more 500s); restarted payments-api pods (flag/config re-evaluated identically on boot). Action items: Flags must start at <=5% rollout; Config schema validation in CI; Record config pushes as Grafana annotations."
   },
   {
     "id": "INC-2347",
@@ -3715,7 +3715,7 @@
       {
         "at": "21:41",
         "who": "Arjun Mehta",
-        "msg": "applying: enabled stale-while-revalidate for sess:* and scaled redis-cache to a 6-shard cluster"
+        "msg": "applying: ran runbook RB-CACHE-04: `pnctl cache harden sess:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`"
       },
       {
         "at": "21:46",
@@ -3725,11 +3725,11 @@
     ],
     "rootCause": "auth-svc deploy set a flat TTL of 300s on all sess:* keys (was 1h with jitter) (commit 86de4ee). Hot sess:* keys were evicted/expired together during salary day peak, causing a cache stampede onto user_sessions in postgres and a Redis eviction storm.",
     "family": "redis-eviction-storm",
-    "fixThatWorked": "enabled stale-while-revalidate for sess:* and scaled redis-cache to a 6-shard cluster",
+    "fixThatWorked": "ran runbook RB-CACHE-04: `pnctl cache harden sess:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`",
     "fixesThatFailed": [],
     "resolvedBy": "Arjun Mehta",
     "ttrMinutes": 58,
-    "postMortem": "Impact: p99 latency 2s for 44 min; 7,561 timeouts at checkout. Trigger: auth-svc deploy set a flat TTL of 300s on all sess:* keys (was 1h with jitter) (commit 86de4ee by Karthik Iyer). Root cause: auth-svc deploy set a flat TTL of 300s on all sess:* keys (was 1h with jitter) (commit 86de4ee). Hot sess:* keys were evicted/expired together during salary day peak, causing a cache stampede onto user_sessions in postgres and a Redis eviction storm. Resolution: enabled stale-while-revalidate for sess:* and scaled redis-cache to a 6-shard cluster (by Arjun Mehta, TTR 58 min). Action items: TTL jitter everywhere; Pre-scale redis-cache before salary day and sale events; Ban FLUSHALL in prod without approval."
+    "postMortem": "Impact: p99 latency 2s for 44 min; 7,561 timeouts at checkout. Trigger: auth-svc deploy set a flat TTL of 300s on all sess:* keys (was 1h with jitter) (commit 86de4ee by Karthik Iyer). Root cause: auth-svc deploy set a flat TTL of 300s on all sess:* keys (was 1h with jitter) (commit 86de4ee). Hot sess:* keys were evicted/expired together during salary day peak, causing a cache stampede onto user_sessions in postgres and a Redis eviction storm. Resolution: ran runbook RB-CACHE-04: `pnctl cache harden sess:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb` (by Arjun Mehta, TTR 58 min). Action items: TTL jitter everywhere; Pre-scale redis-cache before salary day and sale events; Ban FLUSHALL in prod without approval."
   },
   {
     "id": "INC-2351",
@@ -3818,7 +3818,7 @@
       {
         "at": "18:13",
         "who": "Fatima Sheikh",
-        "msg": "applying: forced JWKS refresh on auth-svc (POST /admin/jwks/reload) and set JWKS cache TTL to 5 min"
+        "msg": "applying: ran runbook RB-SEC-03: `pnctl auth jwks-reload` on auth-svc (and set JWKS cache TTL to 5 min)"
       },
       {
         "at": "18:17",
@@ -3828,13 +3828,13 @@
     ],
     "rootCause": "Vault rotated the JWT signing key (kid rolled); auth-svc kept serving a cached JWKS without the new kid. auth-svc failed TLS/auth for every dependent call.",
     "family": "tls-secret-expiry",
-    "fixThatWorked": "forced JWKS refresh on auth-svc (POST /admin/jwks/reload) and set JWKS cache TTL to 5 min",
+    "fixThatWorked": "ran runbook RB-SEC-03: `pnctl auth jwks-reload` on auth-svc (and set JWKS cache TTL to 5 min)",
     "fixesThatFailed": [
       "rolled back the last auth-svc deploy"
     ],
     "resolvedBy": "Fatima Sheikh",
     "ttrMinutes": 54,
-    "postMortem": "Impact: 17 min of failed logins/payments; 80,613 users affected. Trigger: Vault rotated the JWT signing key (kid rolled); auth-svc kept serving a cached JWKS without the new kid (commit b98ccae by Arjun Mehta). Root cause: Vault rotated the JWT signing key (kid rolled); auth-svc kept serving a cached JWKS without the new kid. auth-svc failed TLS/auth for every dependent call. Resolution: forced JWKS refresh on auth-svc (POST /admin/jwks/reload) and set JWKS cache TTL to 5 min (by Fatima Sheikh, TTR 54 min). What did NOT work: rolled back the last auth-svc deploy (the credential is not in the image; no change). Action items: Alert 14 days before any cert expiry; Rotations must trigger ExternalSecret sync + rolling reload; Runbook: credential incidents never need a code rollback."
+    "postMortem": "Impact: 17 min of failed logins/payments; 80,613 users affected. Trigger: Vault rotated the JWT signing key (kid rolled); auth-svc kept serving a cached JWKS without the new kid (commit b98ccae by Arjun Mehta). Root cause: Vault rotated the JWT signing key (kid rolled); auth-svc kept serving a cached JWKS without the new kid. auth-svc failed TLS/auth for every dependent call. Resolution: ran runbook RB-SEC-03: `pnctl auth jwks-reload` on auth-svc (and set JWKS cache TTL to 5 min) (by Fatima Sheikh, TTR 54 min). What did NOT work: rolled back the last auth-svc deploy (the credential is not in the image; no change). Action items: Alert 14 days before any cert expiry; Rotations must trigger ExternalSecret sync + rolling reload; Runbook: credential incidents never need a code rollback."
   },
   {
     "id": "INC-2357",
@@ -3934,7 +3934,7 @@
       {
         "at": "12:39",
         "who": "Priya Raman",
-        "msg": "applying: capped pool per worker (pool_size=5, max_overflow=5) via hotfix config and rolled payments-api; active connections fell from 500 to ~200"
+        "msg": "applying: ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api)"
       },
       {
         "at": "12:47",
@@ -3944,14 +3944,14 @@
     ],
     "rootCause": "payments-api deploy added a settlement-report background thread pool (8 threads) sharing the request DB pool (commit ee64378). 30 pods x 8 workers x pool 20 = up to 4,800 connections against postgres max_connections=500 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection.",
     "family": "db-pool-exhaustion",
-    "fixThatWorked": "capped pool per worker (pool_size=5, max_overflow=5) via hotfix config and rolled payments-api; active connections fell from 500 to ~200",
+    "fixThatWorked": "ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api)",
     "fixesThatFailed": [
       "restarted payments-api pods (kubectl rollout restart deploy/payments-api)",
       "raised postgres max_connections"
     ],
     "resolvedBy": "Priya Raman",
     "ttrMinutes": 104,
-    "postMortem": "Impact: 28,303 failed UPI collect requests (~₹12 Cr GMV delayed). Trigger: payments-api deploy added a settlement-report background thread pool (8 threads) sharing the request DB pool (commit ee64378 by Karthik Iyer). Root cause: payments-api deploy added a settlement-report background thread pool (8 threads) sharing the request DB pool (commit ee64378). 30 pods x 8 workers x pool 20 = up to 4,800 connections against postgres max_connections=500 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection. Resolution: capped pool per worker (pool_size=5, max_overflow=5) via hotfix config and rolled payments-api; active connections fell from 500 to ~200 (by Priya Raman, TTR 104 min). What did NOT work: restarted payments-api pods (kubectl rollout restart deploy/payments-api) (pool re-exhausted within 4 minutes as new workers reconnected); raised postgres max_connections (needs a primary restart; rejected, and RAM per connection made it risky). Action items: Add CI check: workers x replicas x pool_size must stay below pgbouncer max_client_conn; Alert on pgbouncer cl_waiting > 50; Document that pod restarts do not fix pool exhaustion."
+    "postMortem": "Impact: 28,303 failed UPI collect requests (~₹12 Cr GMV delayed). Trigger: payments-api deploy added a settlement-report background thread pool (8 threads) sharing the request DB pool (commit ee64378 by Karthik Iyer). Root cause: payments-api deploy added a settlement-report background thread pool (8 threads) sharing the request DB pool (commit ee64378). 30 pods x 8 workers x pool 20 = up to 4,800 connections against postgres max_connections=500 behind pgbouncer; the connection pool was exhausted at peak and requests timed out waiting for a connection. Resolution: ran runbook RB-PG-07: `pnctl db pool-cap payments-api --size 5 --overflow 5` (sets PN_DB_POOL_SIZE=5 / PN_DB_MAX_OVERFLOW=5 and rolls payments-api) (by Priya Raman, TTR 104 min). What did NOT work: restarted payments-api pods (kubectl rollout restart deploy/payments-api) (pool re-exhausted within 4 minutes as new workers reconnected); raised postgres max_connections (needs a primary restart; rejected, and RAM per connection made it risky). Action items: Add CI check: workers x replicas x pool_size must stay below pgbouncer max_client_conn; Alert on pgbouncer cl_waiting > 50; Document that pod restarts do not fix pool exhaustion."
   },
   {
     "id": "INC-2360",
@@ -4042,7 +4042,7 @@
       {
         "at": "21:09",
         "who": "Sneha Kulkarni",
-        "msg": "applying: added ±20% TTL jitter and singleflight request coalescing on merchant:cfg:*; raised redis maxmemory 12GB → 20GB"
+        "msg": "applying: ran runbook RB-CACHE-04: `pnctl cache harden merchant:cfg:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`"
       },
       {
         "at": "21:15",
@@ -4052,14 +4052,14 @@
     ],
     "rootCause": "payments-api deploy started caching full merchant/user objects (~40KB each) instead of IDs (commit 066dc28). Hot merchant:cfg:* keys were evicted/expired together during Ganesh Chaturthi sale peak, causing a cache stampede onto merchant_config in postgres and a Redis eviction storm.",
     "family": "redis-eviction-storm",
-    "fixThatWorked": "added ±20% TTL jitter and singleflight request coalescing on merchant:cfg:*; raised redis maxmemory 12GB → 20GB",
+    "fixThatWorked": "ran runbook RB-CACHE-04: `pnctl cache harden merchant:cfg:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb`",
     "fixesThatFailed": [
       "scaled payments-api pods up",
       "FLUSHALL on redis-cache to clear memory"
     ],
     "resolvedBy": "Sneha Kulkarni",
     "ttrMinutes": 67,
-    "postMortem": "Impact: p99 latency 7s for 34 min; 11,336 timeouts at checkout. Trigger: payments-api deploy started caching full merchant/user objects (~40KB each) instead of IDs (commit 066dc28 by Meera Pillai). Root cause: payments-api deploy started caching full merchant/user objects (~40KB each) instead of IDs (commit 066dc28). Hot merchant:cfg:* keys were evicted/expired together during Ganesh Chaturthi sale peak, causing a cache stampede onto merchant_config in postgres and a Redis eviction storm. Resolution: added ±20% TTL jitter and singleflight request coalescing on merchant:cfg:*; raised redis maxmemory 12GB → 20GB (by Sneha Kulkarni, TTR 67 min). What did NOT work: scaled payments-api pods up (more concurrent cache misses hitting postgres); FLUSHALL on redis-cache to clear memory (cold cache doubled DB load; destructive and made latency worse). Action items: TTL jitter everywhere; Pre-scale redis-cache before salary day and sale events; Ban FLUSHALL in prod without approval."
+    "postMortem": "Impact: p99 latency 7s for 34 min; 11,336 timeouts at checkout. Trigger: payments-api deploy started caching full merchant/user objects (~40KB each) instead of IDs (commit 066dc28 by Meera Pillai). Root cause: payments-api deploy started caching full merchant/user objects (~40KB each) instead of IDs (commit 066dc28). Hot merchant:cfg:* keys were evicted/expired together during Ganesh Chaturthi sale peak, causing a cache stampede onto merchant_config in postgres and a Redis eviction storm. Resolution: ran runbook RB-CACHE-04: `pnctl cache harden merchant:cfg:*` (CACHE_TTL_JITTER_PCT=20 + singleflight on the prefix) and `pnctl redis resize redis-cache --maxmemory 24gb` (by Sneha Kulkarni, TTR 67 min). What did NOT work: scaled payments-api pods up (more concurrent cache misses hitting postgres); FLUSHALL on redis-cache to clear memory (cold cache doubled DB load; destructive and made latency worse). Action items: TTL jitter everywhere; Pre-scale redis-cache before salary day and sale events; Ban FLUSHALL in prod without approval."
   },
   {
     "id": "INC-2362",
@@ -4150,7 +4150,7 @@
       {
         "at": "00:27",
         "who": "Rahul Verma",
-        "msg": "applying: opened the SBI circuit breaker manually, routed SBI via the secondary NPCI endpoint and isolated it in a bulkhead thread pool"
+        "msg": "applying: ran runbook RB-UPI-03: `pnctl upi failover --psp SBI --route npci-dc2` (opens the npci-sbi breaker, routes SBI via NPCI-DC2, ReqPay timeout 8s)"
       },
       {
         "at": "00:36",
@@ -4160,13 +4160,13 @@
     ],
     "rootCause": "SBI unannounced maintenance on its UPI switch; upi-gateway kept routing at full rate. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for SBI saturated the shared npci-client thread pool and dragged success rate down for every bank.",
     "family": "npci-bank-timeout",
-    "fixThatWorked": "opened the SBI circuit breaker manually, routed SBI via the secondary NPCI endpoint and isolated it in a bulkhead thread pool",
+    "fixThatWorked": "ran runbook RB-UPI-03: `pnctl upi failover --psp SBI --route npci-dc2` (opens the npci-sbi breaker, routes SBI via NPCI-DC2, ReqPay timeout 8s)",
     "fixesThatFailed": [
       "bulk-retried failed ReqPay calls",
       "restarted upi-gateway pods"
     ],
     "resolvedBy": "Rahul Verma",
     "ttrMinutes": 69,
-    "postMortem": "Impact: 39,667 UPI transactions failed or went DEEMED; SBI customers most affected. No internal change preceded it. Root cause: SBI unannounced maintenance on its UPI switch; upi-gateway kept routing at full rate. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for SBI saturated the shared npci-client thread pool and dragged success rate down for every bank. Resolution: opened the SBI circuit breaker manually, routed SBI via the secondary NPCI endpoint and isolated it in a bulkhead thread pool (by Rahul Verma, TTR 69 min). What did NOT work: bulk-retried failed ReqPay calls (risk of duplicate debits; stopped by payments lead); restarted upi-gateway pods (timeouts returned immediately; cause is external). Action items: Per-bank bulkheads in npci-client; Auto circuit breaker per payer_psp; Status page template for partner-bank degradation."
+    "postMortem": "Impact: 39,667 UPI transactions failed or went DEEMED; SBI customers most affected. No internal change preceded it. Root cause: SBI unannounced maintenance on its UPI switch; upi-gateway kept routing at full rate. upi-gateway had no per-bank circuit breaker, so 30s NPCI timeouts for SBI saturated the shared npci-client thread pool and dragged success rate down for every bank. Resolution: ran runbook RB-UPI-03: `pnctl upi failover --psp SBI --route npci-dc2` (opens the npci-sbi breaker, routes SBI via NPCI-DC2, ReqPay timeout 8s) (by Rahul Verma, TTR 69 min). What did NOT work: bulk-retried failed ReqPay calls (risk of duplicate debits; stopped by payments lead); restarted upi-gateway pods (timeouts returned immediately; cause is external). Action items: Per-bank bulkheads in npci-client; Auto circuit breaker per payer_psp; Status page template for partner-bank degradation."
   }
 ]

@@ -134,7 +134,7 @@ interface PanelSeries {
   emphasis: boolean;
 }
 
-function Panel({
+export function Panel({
   height,
   n,
   x,
@@ -262,9 +262,109 @@ function Panel({
   );
 }
 
-function niceCeil(v: number): number {
+export function niceCeil(v: number): number {
   const mag = 10 ** Math.floor(Math.log10(v));
   const f = v / mag;
   const nice = f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : f <= 7.5 ? 7.5 : 10;
   return nice * mag;
+}
+
+/**
+ * Headline fix-level charts: cumulative "right fix first try" rate (ON vs OFF) and, on its own
+ * panel with the same x-axis, the cumulative count of known-failed fixes repeated.
+ */
+export function FixCharts({ rows }: { rows: ColdRow[] }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const n = rows.length;
+  const iw = W - M.left - M.right;
+  const x = (i: number) => M.left + (n <= 1 ? iw / 2 : (i / (n - 1)) * iw);
+  const evalStart = rows.findIndex((r) => r.phase === "eval");
+  const cum = rows.map((r) => r.fixCumulative ?? { rightFixOff: 0, rightFixOn: 0, repeatedOff: 0, repeatedOn: 0 });
+  const rate = (k: "rightFixOff" | "rightFixOn") => cum.map((c, i) => c[k] / (i + 1));
+  const last = cum.at(-1);
+  const repTop = niceCeil(Math.max(4, last?.repeatedOff ?? 0, last?.repeatedOn ?? 0));
+  const h = hover !== null ? rows[hover] : null;
+  const hc = hover !== null ? cum[hover] : null;
+
+  return (
+    <div className="relative">
+      <div className="mb-2 flex flex-wrap gap-4 text-xs text-ink-300" aria-hidden>
+        {(["on", "off"] as const).map((k) => (
+          <span key={k} className="flex items-center gap-1.5">
+            <span className="inline-block h-0.5 w-4 rounded" style={{ background: SERIES[k].color }} />
+            {SERIES[k].label}
+          </span>
+        ))}
+      </div>
+      <Panel
+        height={H_ACC}
+        n={n}
+        x={x}
+        onHover={setHover}
+        hover={hover}
+        evalStart={evalStart}
+        yTicks={[0, 0.25, 0.5, 0.75, 1].map((t) => ({ v: t, label: `${Math.round(t * 100)}%` }))}
+        yScale={(v, ih) => M.top + (1 - v) * ih}
+        label="Right fix first try — cumulative rate"
+        series={(["off", "on"] as const).map((k) => {
+          const values = rate(k === "on" ? "rightFixOn" : "rightFixOff");
+          return {
+            key: k,
+            color: SERIES[k].color,
+            values,
+            correct: rows.map((r) => !!r[k].rightFix),
+            endLabel: `${k.toUpperCase()} ${Math.round((values.at(-1) ?? 0) * 100)}%`,
+            emphasis: k === "on",
+          };
+        })}
+        ariaLabel={`Cumulative right-fix-first-try rate. Memory ON ends at ${Math.round(((last?.rightFixOn ?? 0) / Math.max(1, n)) * 100)}%, memory OFF at ${Math.round(((last?.rightFixOff ?? 0) / Math.max(1, n)) * 100)}%.`}
+      />
+      <Panel
+        height={H_MEM}
+        n={n}
+        x={x}
+        onHover={setHover}
+        hover={hover}
+        evalStart={evalStart}
+        yTicks={[0, repTop / 2, repTop].map((v) => ({ v, label: String(v) }))}
+        yScale={(v, ih) => M.top + (1 - v / repTop) * ih}
+        label="Known-failed fixes repeated — cumulative count (lower is better)"
+        series={(["off", "on"] as const).map((k) => ({
+          key: k,
+          color: SERIES[k].color,
+          values: cum.map((c) => (k === "on" ? c.repeatedOn : c.repeatedOff)),
+          endLabel: `${k.toUpperCase()} ${k === "on" ? (last?.repeatedOn ?? 0) : (last?.repeatedOff ?? 0)}`,
+          emphasis: k === "on",
+        }))}
+        xAxis
+        ariaLabel={`Known-failed fixes repeated: memory ON ${last?.repeatedOn ?? 0}, memory OFF ${last?.repeatedOff ?? 0}.`}
+      />
+      {h && hc && (
+        <div
+          className="pointer-events-none absolute top-10 z-10 w-80 rounded-lg border border-ink-700 bg-ink-950/95 p-3 text-xs shadow-xl"
+          style={{ left: `clamp(0px, calc(${(x(hover!) / W) * 100}% - 10rem), calc(100% - 20rem))` }}
+        >
+          <div className="text-ink-400">
+            #{h.index} · <span className="font-mono">{h.id}</span> · {FAMILY_LABELS[h.family]}
+          </div>
+          {(["on", "off"] as const).map((k) => (
+            <div key={k} className="mt-1.5">
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-0.5 w-3 rounded" style={{ background: SERIES[k].color }} />
+                <span className="text-ink-100">{SERIES[k].label}</span>
+                <span className={`ml-auto ${h[k].rightFix ? "text-emerald-300" : "text-ink-400"}`}>{h[k].rightFix ? "✓ right fix" : "✕ not the fix"}</span>
+              </div>
+              {h[k].repeatedFailedFix && <div className="pl-5 text-red-300">↺ repeated: {h[k].repeatedWhich ?? "a known-failed fix"}</div>}
+            </div>
+          ))}
+          <div className="mt-1.5 text-ink-400">
+            Running totals: right fix ON {hc.rightFixOn} / OFF {hc.rightFixOff} · repeats ON {hc.repeatedOn} / OFF {hc.repeatedOff}
+          </div>
+        </div>
+      )}
+      <p className="mt-1 text-[11px] text-ink-400">
+        Filled dot = that incident&apos;s top recommended fix was PayNest&apos;s actual fix (LLM-judged against ground truth); hollow = not.
+      </p>
+    </div>
+  );
 }
