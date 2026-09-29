@@ -16,12 +16,11 @@ import "./env";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { diagnoseWithMemory, diagnoseWithoutMemory } from "../lib/agent";
-import { judge, summarise, type EvalResults, type EvalRow, type SideResult } from "../lib/eval";
-import { BANK_ID, bankExists, describeError, listDocumentIds, retainItems, waitForOperations } from "../lib/hindsight";
+import { retainResolution, scoreSide, summarise, type EvalResults, type EvalRow, type SideResult } from "../lib/eval";
+import { BANK_ID, bankExists, describeError, listDocumentIds, waitForOperations } from "../lib/hindsight";
 import { seedBank } from "../lib/seed";
-import { EVAL, HISTORY, incidentTags, renderIncidentDocument, toInput } from "../lib/incidents";
+import { EVAL, HISTORY, toInput } from "../lib/incidents";
 import { PRIMARY_MODEL } from "../lib/llm";
-import type { DiagnoseResult, Incident } from "../lib/types";
 
 const EVAL_BANK = `${BANK_ID}-eval`;
 
@@ -46,42 +45,6 @@ async function prepareEvalBank(): Promise<void> {
       }
     },
   });
-}
-
-async function scoreSide(incident: Incident, run: () => Promise<DiagnoseResult>): Promise<SideResult> {
-  try {
-    const r = await run();
-    const top = r.diagnosis.hypotheses[0]!;
-    const j = await judge(incident, r.diagnosis);
-    return {
-      topTitle: top.title,
-      topRootCause: top.rootCause,
-      judgedFamilies: j.families,
-      correct: j.families[0] === incident.family,
-      top3Correct: j.families.slice(0, 3).includes(incident.family),
-      confidence: top.confidence,
-      latencyMs: r.latencyMs,
-      citedIncidents: r.citedIncidents,
-      fixesToAvoid: r.diagnosis.fixesToAvoid.length,
-      model: r.model,
-      judgeReason: j.reason,
-    };
-  } catch (err) {
-    return {
-      topTitle: "(error)",
-      topRootCause: "",
-      judgedFamilies: [],
-      correct: false,
-      top3Correct: false,
-      confidence: 0,
-      latencyMs: 0,
-      citedIncidents: [],
-      fixesToAvoid: 0,
-      model: "",
-      judgeReason: "",
-      error: describeError(err),
-    };
-  }
 }
 
 async function main(): Promise<void> {
@@ -123,19 +86,7 @@ async function main(): Promise<void> {
 
     // Memory ON learns: retain the resolved incident after scoring it.
     try {
-      const ops = await retainItems(
-        [
-          {
-            content: renderIncidentDocument(incident),
-            timestamp: incident.startedAt,
-            context: `PayNest production incident post-mortem for ${incident.service} (${incident.id})`,
-            document_id: incident.id,
-            tags: incidentTags(incident, "eval"),
-            metadata: { incident_id: incident.id, service: incident.service, family: incident.family, resolved_by: incident.resolvedBy },
-          },
-        ],
-        { bankId: EVAL_BANK, async: true },
-      );
+      const ops = await retainResolution(incident, EVAL_BANK, "eval");
       await waitForOperations(ops, { bankId: EVAL_BANK, timeoutMs: 6 * 60_000 });
     } catch (err) {
       console.warn(`   retain of ${incident.id} failed: ${describeError(err)}`);
