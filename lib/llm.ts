@@ -96,10 +96,15 @@ async function callOnce(model: string, messages: ChatMessage[], opts: ChatOption
         delete body.response_format;
         continue;
       }
+      // A long retry-after (e.g. the daily token quota) won't clear within our retries:
+      // give up on this model now so chat() falls back to the next one without waiting.
+      const retryAfter = Number(res.headers.get("retry-after"));
+      if (res.status === 429 && Number.isFinite(retryAfter) && retryAfter > 10) throw lastErr;
       if (res.status !== 429 && res.status < 500) throw lastErr;
     } catch (err) {
       lastErr = err;
       if (err instanceof LlmError && err.status && err.status !== 429 && err.status < 500) throw err;
+      if (err instanceof LlmError && err.status === 429 && Number(res?.headers.get("retry-after")) > 10) throw err;
     }
     if (attempt < MAX_RETRIES) await sleep(retryDelayMs(res, attempt));
   }

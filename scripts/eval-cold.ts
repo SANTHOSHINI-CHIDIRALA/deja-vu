@@ -17,6 +17,8 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { diagnoseWithMemory, diagnoseWithoutMemory } from "../lib/agent";
 import {
+  FAMILY_JUDGE_MODELS,
+  FIX_JUDGE_MODELS,
   countMemories,
   earlierFailedFixes,
   retainResolution,
@@ -29,7 +31,6 @@ import {
 } from "../lib/eval";
 import { BANK_ID, configureBank, deleteBankIfExists, describeError } from "../lib/hindsight";
 import { EVAL, HISTORY, toInput } from "../lib/incidents";
-import { PRIMARY_MODEL } from "../lib/llm";
 
 const COLD_BANK = `${BANK_ID}-cold`;
 const ALL_INCIDENTS = [...HISTORY, ...EVAL];
@@ -129,7 +130,7 @@ function write(rows: ColdRow[], t0: number): ColdResults {
   const results: ColdResults = {
     generatedAt: new Date().toISOString(),
     bankId: COLD_BANK,
-    judgeModel: PRIMARY_MODEL,
+    judgeModel: `family: ${FAMILY_JUDGE_MODELS[0]} · fix: ${FIX_JUDGE_MODELS[0]}`,
     n: rows.length,
     window: WINDOW,
     runtimeMinutes: (Date.now() - t0) / 60_000,

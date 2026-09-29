@@ -56,6 +56,14 @@ export interface EvalResults {
   rows: EvalRow[];
 }
 
+/**
+ * Judges run on different Groq models than the memory-OFF diagnosis (gpt-oss-120b): the free
+ * tier caps tokens per minute *per model*, so spreading the calls keeps the eval fast. Both
+ * sides of every incident are scored by the same judge.
+ */
+export const FAMILY_JUDGE_MODELS = ["openai/gpt-oss-20b", "qwen/qwen3.8-27b"];
+export const FIX_JUDGE_MODELS = ["openai/gpt-oss-20b", "qwen/qwen3.8-27b"];
+
 const JudgeSchema = z.object({
   families: z.array(z.string()).default([]),
   reason: z.string().default(""),
@@ -80,7 +88,7 @@ export async function judge(incident: Incident, diagnosis: Diagnosis): Promise<{
         content: `Ground truth root cause (family ${incident.family}): ${incident.rootCause}\n\nHypotheses:\n${hyps}`,
       },
     ],
-    { temperature: 0, maxTokens: 800 },
+    { temperature: 0, maxTokens: 800, models: FAMILY_JUDGE_MODELS },
   );
   const families = data.families.map((f) => (FAMILIES as readonly string[]).includes(f) ? f : "unknown");
   return { families, reason: data.reason, model };
@@ -297,7 +305,7 @@ Agent's next checks / commands:
 ${nextChecks.length ? nextChecks.map((c) => `- ${c}`).join("\n") : "(none)"}`,
       },
     ],
-    { temperature: 0, maxTokens: 700 },
+    { temperature: 0, maxTokens: 700, models: FIX_JUDGE_MODELS },
   );
   return { rightFix: data.rightFix, repeatedFailedFix: data.repeatedFailedFix, repeatedWhich: data.repeatedWhich, reason: data.reason };
 }
