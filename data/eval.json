@@ -1,0 +1,2023 @@
+[
+  {
+    "id": "INC-2356",
+    "title": "auth-svc login latency spike at salary-day midnight",
+    "startedAt": "2026-09-30T19:04:00.000Z",
+    "service": "auth-svc",
+    "severity": "SEV2",
+    "alert": {
+      "alertname": "AuthLoginLatencyP99High",
+      "status": "firing",
+      "labels": {
+        "alertname": "AuthLoginLatencyP99High",
+        "service": "auth-svc",
+        "severity": "high",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "auth-svc /v1/login p99 4.8s (SLO 800ms)",
+        "description": "Login latency degraded for 12 min; postgres CPU 94%.",
+        "runbook_url": "https://runbooks.paynest.internal/auth-svc/AuthLoginLatencyP99High"
+      },
+      "expr": "histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{service=\"auth-svc\",route=\"/v1/login\"}[5m]))) > 0.8",
+      "value": "4.81",
+      "startsAt": "2026-09-30T19:04:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/authloginlatencyp99high/view"
+    },
+    "logs": [
+      "2026-09-30T19:03:24.157Z LOG postgres-primary duration: 3122.481 ms statement: SELECT * FROM user_sessions WHERE session_id = $1",
+      "2026-09-30T19:02:55.344Z WARN node-exporter postgres-primary cpu_usage=94% load1=38.2",
+      "2026-09-30T19:03:36.029Z WARN auth-svc-574285b57-lfbhg slow request POST /v1/login 4812ms",
+      "2026-09-30T19:03:42.353Z INFO auth-svc-574285b57-lfbhg session cache hit ratio 21% (5m avg)",
+      "2026-09-30T19:03:40.181Z WARN redis-cache-0 1:M # evicted 71,204 keys in last 60s (maxmemory-policy allkeys-lru)",
+      "2026-09-30T19:03:53.879Z ERROR auth-svc-574285b57-lfbhg redis.exceptions.TimeoutError: Timeout reading from socket"
+    ],
+    "precedingChange": {
+      "kind": "none",
+      "service": "auth-svc",
+      "description": "No deploy, config or infra change in the preceding 24h",
+      "sha": null,
+      "author": null,
+      "at": null
+    },
+    "timeline": [
+      {
+        "at": "00:34",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV2] AuthLoginLatencyP99High — auth-svc /v1/login p99 4.8s (SLO 800ms)"
+      },
+      {
+        "at": "00:36",
+        "who": "Rahul Verma",
+        "msg": "ack, looking"
+      },
+      {
+        "at": "00:40",
+        "who": "Rahul Verma",
+        "msg": "seeing WARN auth-svc-574285b57-lfbhg slow request POST /v1/login 4812ms"
+      },
+      {
+        "at": "00:42",
+        "who": "Rahul Verma",
+        "msg": "trying: added a read replica for user_sessions queries"
+      },
+      {
+        "at": "00:51",
+        "who": "Rahul Verma",
+        "msg": "no luck — took 20 min to provision; misses kept hammering primary"
+      },
+      {
+        "at": "00:54",
+        "who": "Rahul Verma",
+        "msg": "paging @Arjun, they've handled this before"
+      },
+      {
+        "at": "00:58",
+        "who": "Arjun Mehta",
+        "msg": "joining. checking the last change that went out"
+      },
+      {
+        "at": "01:05",
+        "who": "Arjun Mehta",
+        "msg": "postgres is the victim — sess:* hit ratio fell to 21%, redis is evicting. salary day stampede again"
+      },
+      {
+        "at": "01:08",
+        "who": "Arjun Mehta",
+        "msg": "applying: raised redis-cache maxmemory 16GB → 24GB, added TTL jitter and singleflight on sess:* lookups"
+      },
+      {
+        "at": "01:15",
+        "who": "Arjun Mehta",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "Salary-day midnight login surge (5x TPS) pushed redis-cache to maxmemory; sess:* keys were evicted and every miss fell through to user_sessions in postgres — a cache stampede / Redis eviction storm, not a database problem.",
+    "family": "redis-eviction-storm",
+    "fixThatWorked": "raised redis-cache maxmemory 16GB → 24GB, added TTL jitter and singleflight on sess:* lookups",
+    "fixesThatFailed": [
+      "added a read replica for user_sessions queries"
+    ],
+    "resolvedBy": "Arjun Mehta",
+    "ttrMinutes": 41,
+    "postMortem": "Impact: Login p99 ~5s for 35 min for ~1.1L users. No internal change preceded it. Root cause: Salary-day midnight login surge (5x TPS) pushed redis-cache to maxmemory; sess:* keys were evicted and every miss fell through to user_sessions in postgres — a cache stampede / Redis eviction storm, not a database problem. Resolution: raised redis-cache maxmemory 16GB → 24GB, added TTL jitter and singleflight on sess:* lookups (by Arjun Mehta, TTR 41 min). What did NOT work: added a read replica for user_sessions queries (took 20 min to provision; misses kept hammering primary). Action items: Link this incident to its family runbook; Add a regression alert."
+  },
+  {
+    "id": "INC-2358",
+    "title": "Checkout success rate drop — payments-api worker timeouts",
+    "startedAt": "2026-10-01T21:17:00.000Z",
+    "service": "payments-api",
+    "severity": "SEV1",
+    "alert": {
+      "alertname": "CheckoutSuccessRateLow",
+      "status": "firing",
+      "labels": {
+        "alertname": "CheckoutSuccessRateLow",
+        "service": "payments-api",
+        "severity": "critical",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "checkout success rate 71% (SLO 99.5%)",
+        "description": "Drop started 02:41 IST; 503s from envoy in front of payments-api.",
+        "runbook_url": "https://runbooks.paynest.internal/payments-api/CheckoutSuccessRateLow"
+      },
+      "expr": "sum(rate(checkout_completed_total[5m])) / sum(rate(checkout_started_total[5m])) < 0.95",
+      "value": "0.71",
+      "startsAt": "2026-10-01T21:17:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/checkoutsuccessratelow/view"
+    },
+    "logs": [
+      "2026-10-01T21:15:36.447Z WARN envoy [payments] upstream connect error or disconnect/reset before headers. reset reason: connection timeout",
+      "2026-10-01T21:16:15.949Z CRITICAL payments-api-13484387b-fdddf [gunicorn] WORKER TIMEOUT (pid:417)",
+      "2026-10-01T21:16:28.522Z CRITICAL payments-api-13484387b-fdddf [gunicorn] WORKER TIMEOUT (pid:422)",
+      "2026-10-01T21:16:33.869Z INFO payments-api-13484387b-fdddf [gunicorn] Booting worker with pid: 611",
+      "2026-10-01T21:16:34.121Z WARN kubelet Readiness probe failed for payments-api-13484387b-fdddf: HTTP probe failed with statuscode: 503",
+      "2026-10-01T21:16:53.098Z INFO payments-api-13484387b-fdddf request POST /v1/payments/collect took 30012ms"
+    ],
+    "precedingChange": {
+      "kind": "deploy",
+      "service": "payments-api",
+      "description": "payments-api deploy 'tune gunicorn for festive load': WORKERS 8 → 16, threads 2 → 4",
+      "sha": "6be6253",
+      "author": "Rohan Gupta",
+      "at": "2026-10-01T20:39:00.000Z"
+    },
+    "timeline": [
+      {
+        "at": "02:47",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV1] CheckoutSuccessRateLow — checkout success rate 71% (SLO 99.5%)"
+      },
+      {
+        "at": "02:48",
+        "who": "Sneha Kulkarni",
+        "msg": "ack, looking"
+      },
+      {
+        "at": "02:53",
+        "who": "Sneha Kulkarni",
+        "msg": "seeing CRITICAL payments-api-13484387b-fdddf [gunicorn] WORKER TIMEOUT (pid:417)"
+      },
+      {
+        "at": "02:55",
+        "who": "Sneha Kulkarni",
+        "msg": "trying: restarted payments-api pods"
+      },
+      {
+        "at": "02:59",
+        "who": "Sneha Kulkarni",
+        "msg": "no luck — workers re-exhausted the pool within 3 minutes"
+      },
+      {
+        "at": "03:03",
+        "who": "Sneha Kulkarni",
+        "msg": "paging @Priya, they've handled this before"
+      },
+      {
+        "at": "03:07",
+        "who": "Priya Raman",
+        "msg": "joining. checking the last change that went out"
+      },
+      {
+        "at": "03:14",
+        "who": "Priya Raman",
+        "msg": "the worker timeouts are waiting on DB connections — 24 pods x 16 workers x pool 20 vs max_connections 600"
+      },
+      {
+        "at": "03:15",
+        "who": "Priya Raman",
+        "msg": "applying: capped SQLAlchemy pool_size=5 / max_overflow=5 per worker via hotfix config and rolled payments-api"
+      },
+      {
+        "at": "03:23",
+        "who": "Priya Raman",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "Deploy doubled gunicorn workers (8→16) and threads; with 24 pods and pool_size 20 the potential DB connections far exceeded pgbouncer/postgres max_connections=600, so workers blocked 30s acquiring a DB connection and gunicorn killed them — DB connection pool exhaustion.",
+    "family": "db-pool-exhaustion",
+    "fixThatWorked": "capped SQLAlchemy pool_size=5 / max_overflow=5 per worker via hotfix config and rolled payments-api",
+    "fixesThatFailed": [
+      "restarted payments-api pods"
+    ],
+    "resolvedBy": "Priya Raman",
+    "ttrMinutes": 36,
+    "postMortem": "Impact: ~38k checkouts failed over 30 min. Trigger: payments-api deploy 'tune gunicorn for festive load': WORKERS 8 → 16, threads 2 → 4 (commit 6be6253 by Rohan Gupta). Root cause: Deploy doubled gunicorn workers (8→16) and threads; with 24 pods and pool_size 20 the potential DB connections far exceeded pgbouncer/postgres max_connections=600, so workers blocked 30s acquiring a DB connection and gunicorn killed them — DB connection pool exhaustion. Resolution: capped SQLAlchemy pool_size=5 / max_overflow=5 per worker via hotfix config and rolled payments-api (by Priya Raman, TTR 36 min). What did NOT work: restarted payments-api pods (workers re-exhausted the pool within 3 minutes). Action items: Link this incident to its family runbook; Add a regression alert."
+  },
+  {
+    "id": "INC-2361",
+    "title": "payments-api 5xx right after a feature-flag push",
+    "startedAt": "2026-10-03T05:50:00.000Z",
+    "service": "payments-api",
+    "severity": "SEV1",
+    "alert": {
+      "alertname": "PaymentsAPIHigh5xxRate",
+      "status": "firing",
+      "labels": {
+        "alertname": "PaymentsAPIHigh5xxRate",
+        "service": "payments-api",
+        "severity": "critical",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "payments-api 5xx ratio 14%",
+        "description": "5xx concentrated on POST /v1/payments/collect.",
+        "runbook_url": "https://runbooks.paynest.internal/payments-api/PaymentsAPIHigh5xxRate"
+      },
+      "expr": "sum(rate(http_requests_total{service=\"payments-api\",code=~\"5..\"}[5m])) / sum(rate(http_requests_total{service=\"payments-api\"}[5m])) > 0.05",
+      "value": "0.14",
+      "startsAt": "2026-10-03T05:50:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/paymentsapihigh5xxrate/view"
+    },
+    "logs": [
+      "2026-10-03T05:49:15.047Z INFO unleash-proxy flag=enable_collect_retry_v2 strategy=gradualRollout rollout=25%",
+      "2026-10-03T05:49:28.643Z ERROR payments-api-d2907037d-beafh POST /v1/payments/collect 504 upstream=upi-gateway latency_ms=30004",
+      "2026-10-03T05:49:18.502Z ERROR payments-api-d2907037d-beafh POST /v1/payments/collect 504 upstream=upi-gateway latency_ms=30001",
+      "2026-10-03T05:49:46.097Z WARN upi-gateway-6c8d7f9b4-qr2vt npci-client pool saturation active=200/200",
+      "2026-10-03T05:49:53.117Z INFO upi-gateway-6c8d7f9b4-qr2vt ReqPay latency p99 by payer_psp: UTIB=29.8s HDFC=1.1s SBIN=1.3s"
+    ],
+    "precedingChange": {
+      "kind": "feature-flag",
+      "service": "payments-api",
+      "description": "Unleash flag enable_collect_retry_v2 rolled to 25%",
+      "sha": "1e552fc",
+      "author": "Meera Pillai",
+      "at": "2026-10-03T05:33:00.000Z"
+    },
+    "timeline": [
+      {
+        "at": "11:20",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV1] PaymentsAPIHigh5xxRate — payments-api 5xx ratio 14%"
+      },
+      {
+        "at": "11:22",
+        "who": "Karthik Iyer",
+        "msg": "ack, looking"
+      },
+      {
+        "at": "11:27",
+        "who": "Karthik Iyer",
+        "msg": "seeing ERROR payments-api-d2907037d-beafh POST /v1/payments/collect 504 upstream=upi-gateway latency_ms=30001"
+      },
+      {
+        "at": "11:28",
+        "who": "Karthik Iyer",
+        "msg": "trying: turned off enable_collect_retry_v2"
+      },
+      {
+        "at": "11:36",
+        "who": "Karthik Iyer",
+        "msg": "no luck — no change in 5xx; flag was unrelated"
+      },
+      {
+        "at": "11:40",
+        "who": "Karthik Iyer",
+        "msg": "paging @Rahul, they've handled this before"
+      },
+      {
+        "at": "11:44",
+        "who": "Rahul Verma",
+        "msg": "joining. checking the last change that went out"
+      },
+      {
+        "at": "11:50",
+        "who": "Rahul Verma",
+        "msg": "p99 by payer_psp says it all — only UTIB is at 30s. it's Axis at NPCI, not the flag"
+      },
+      {
+        "at": "11:58",
+        "who": "Rahul Verma",
+        "msg": "applying: opened circuit breaker for npci-axis, failed Axis routes over to NPCI-DC2, cut ReqPay timeout to 8s"
+      },
+      {
+        "at": "12:04",
+        "who": "Rahul Verma",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "Axis Bank (UTIB) switch degraded behind NPCI; upi-gateway had no per-bank circuit breaker so 30s ReqPay timeouts saturated the shared npci-client pool and surfaced as 504s in payments-api. The flag push was a red herring.",
+    "family": "npci-bank-timeout",
+    "fixThatWorked": "opened circuit breaker for npci-axis, failed Axis routes over to NPCI-DC2, cut ReqPay timeout to 8s",
+    "fixesThatFailed": [
+      "turned off enable_collect_retry_v2"
+    ],
+    "resolvedBy": "Rahul Verma",
+    "ttrMinutes": 44,
+    "postMortem": "Impact: ~52k UPI collects failed or went DEEMED, mostly Axis customers. Trigger: Unleash flag enable_collect_retry_v2 rolled to 25% (commit 1e552fc by Meera Pillai). Root cause: Axis Bank (UTIB) switch degraded behind NPCI; upi-gateway had no per-bank circuit breaker so 30s ReqPay timeouts saturated the shared npci-client pool and surfaced as 504s in payments-api. The flag push was a red herring. Resolution: opened circuit breaker for npci-axis, failed Axis routes over to NPCI-DC2, cut ReqPay timeout to 8s (by Rahul Verma, TTR 44 min). What did NOT work: turned off enable_collect_retry_v2 (no change in 5xx; flag was unrelated). Action items: Link this incident to its family runbook; Add a regression alert."
+  },
+  {
+    "id": "INC-2363",
+    "title": "OTP SMS delivery SLO breach",
+    "startedAt": "2026-10-04T15:35:00.000Z",
+    "service": "auth-svc",
+    "severity": "SEV2",
+    "alert": {
+      "alertname": "OTPDeliverySLOBreach",
+      "status": "firing",
+      "labels": {
+        "alertname": "OTPDeliverySLOBreach",
+        "service": "auth-svc",
+        "severity": "high",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "OTP SMS p95 delivery 7m12s (SLO 30s)",
+        "description": "Users unable to complete login/payment OTP.",
+        "runbook_url": "https://runbooks.paynest.internal/auth-svc/OTPDeliverySLOBreach"
+      },
+      "expr": "histogram_quantile(0.95, sum by (le) (rate(otp_delivery_seconds_bucket[10m]))) > 30",
+      "value": "432",
+      "startsAt": "2026-10-04T15:35:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/otpdeliveryslobreach/view"
+    },
+    "logs": [
+      "2026-10-04T15:34:30.252Z WARN auth-svc-d564ac463-hcclf OTP dispatch enqueued to kafka topic otp.events but no delivery receipt after 300s",
+      "2026-10-04T15:34:12.672Z INFO kafka-1 [GroupCoordinator 1]: Preparing to rebalance group notif-worker in state PreparingRebalance with old generation 1204",
+      "2026-10-04T15:34:42.773Z WARN notif-worker-5f7c9d8b6-k2m9x (Re-)joining group notif-worker; rebalance in progress (attempt 11)",
+      "2026-10-04T15:34:32.719Z INFO sms-gateway provider=kaleyra status=healthy p99=410ms",
+      "2026-10-04T15:34:46.213Z INFO burrow consumer_group=notif-worker topic=otp.events total_lag=84,310 status=STALL"
+    ],
+    "precedingChange": {
+      "kind": "infra",
+      "service": "kafka",
+      "description": "Kafka broker patch rollout (kafka-1 restarted, group coordinator moved)",
+      "sha": "9e27f5c",
+      "author": "Aditya Joshi",
+      "at": "2026-10-04T15:09:00.000Z"
+    },
+    "timeline": [
+      {
+        "at": "21:05",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV2] OTPDeliverySLOBreach — OTP SMS p95 delivery 7m12s (SLO 30s)"
+      },
+      {
+        "at": "21:07",
+        "who": "Fatima Sheikh",
+        "msg": "on it — war room in #inc-bridge"
+      },
+      {
+        "at": "21:09",
+        "who": "Fatima Sheikh",
+        "msg": "seeing WARN auth-svc-d564ac463-hcclf OTP dispatch enqueued to kafka topic otp.events but no delivery receipt after 30"
+      },
+      {
+        "at": "21:13",
+        "who": "Fatima Sheikh",
+        "msg": "trying: failed over OTP SMS to backup SMS provider"
+      },
+      {
+        "at": "21:18",
+        "who": "Fatima Sheikh",
+        "msg": "no luck — provider was healthy; messages never left the queue"
+      },
+      {
+        "at": "21:22",
+        "who": "Fatima Sheikh",
+        "msg": "paging @Sneha, they've handled this before"
+      },
+      {
+        "at": "21:27",
+        "who": "Sneha Kulkarni",
+        "msg": "joining. checking the last change that went out"
+      },
+      {
+        "at": "21:35",
+        "who": "Sneha Kulkarni",
+        "msg": "SMS provider is fine — notif-worker is stuck rebalancing since the broker patch"
+      },
+      {
+        "at": "21:40",
+        "who": "Sneha Kulkarni",
+        "msg": "applying: switched notif-worker to CooperativeStickyAssignor with static membership (group.instance.id) and rolled it once"
+      },
+      {
+        "at": "21:44",
+        "who": "Sneha Kulkarni",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "Kafka broker patch restarted kafka-1 (the group coordinator); notif-worker uses the eager assignor so the whole group went into a repeated partition rebalance and consumer lag on otp.events grew — OTP SMS delayed.",
+    "family": "kafka-consumer-lag",
+    "fixThatWorked": "switched notif-worker to CooperativeStickyAssignor with static membership (group.instance.id) and rolled it once",
+    "fixesThatFailed": [
+      "failed over OTP SMS to backup SMS provider"
+    ],
+    "resolvedBy": "Sneha Kulkarni",
+    "ttrMinutes": 39,
+    "postMortem": "Impact: OTP delays for ~40 min; 9k abandoned payments. Trigger: Kafka broker patch rollout (kafka-1 restarted, group coordinator moved) (commit 9e27f5c by Aditya Joshi). Root cause: Kafka broker patch restarted kafka-1 (the group coordinator); notif-worker uses the eager assignor so the whole group went into a repeated partition rebalance and consumer lag on otp.events grew — OTP SMS delayed. Resolution: switched notif-worker to CooperativeStickyAssignor with static membership (group.instance.id) and rolled it once (by Sneha Kulkarni, TTR 39 min). What did NOT work: failed over OTP SMS to backup SMS provider (provider was healthy; messages never left the queue). Action items: Link this incident to its family runbook; Add a regression alert."
+  },
+  {
+    "id": "INC-2366",
+    "title": "ledger-svc nightly reconciliation failing with DB errors",
+    "startedAt": "2026-10-05T21:40:00.000Z",
+    "service": "ledger-svc",
+    "severity": "SEV2",
+    "alert": {
+      "alertname": "LedgerReconJobFailed",
+      "status": "firing",
+      "labels": {
+        "alertname": "LedgerReconJobFailed",
+        "service": "ledger-svc",
+        "severity": "high",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "ledger-svc reconciliation job failed 3 times",
+        "description": "Nightly settlement recon blocked; T+1 settlement at risk.",
+        "runbook_url": "https://runbooks.paynest.internal/ledger-svc/LedgerReconJobFailed"
+      },
+      "expr": "increase(ledger_recon_job_failures_total[1h]) > 2",
+      "value": "3",
+      "startsAt": "2026-10-05T21:40:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/ledgerreconjobfailed/view"
+    },
+    "logs": [
+      "2026-10-05T21:39:16.117Z ERROR ledger-svc-d7a5ca03c-macdk c.z.h.p.HikariPool - HikariPool-1 - Exception during pool initialization.",
+      "2026-10-05T21:39:42.753Z ERROR ledger-svc-d7a5ca03c-macdk org.postgresql.util.PSQLException: FATAL: password authentication failed for user \"v-ledger-svc-3f9a1c\"",
+      "2026-10-05T21:39:44.419Z WARN ledger-svc-d7a5ca03c-macdk HikariPool-1 - Connection is not available, request timed out after 30000ms",
+      "2026-10-05T21:39:49.674Z INFO vault audit: rotate path=database/creds/ledger-svc ttl=24h"
+    ],
+    "precedingChange": {
+      "kind": "secret-rotation",
+      "service": "ledger-svc",
+      "description": "Vault dynamic DB credentials for ledger-svc rotated on schedule",
+      "sha": "a74056e",
+      "author": "vault-operator",
+      "at": "2026-10-05T20:30:00.000Z"
+    },
+    "timeline": [
+      {
+        "at": "03:10",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV2] LedgerReconJobFailed — ledger-svc reconciliation job failed 3 times"
+      },
+      {
+        "at": "03:11",
+        "who": "Karthik Iyer",
+        "msg": "on it — war room in #inc-bridge"
+      },
+      {
+        "at": "03:14",
+        "who": "Karthik Iyer",
+        "msg": "seeing WARN ledger-svc-d7a5ca03c-macdk HikariPool-1 - Connection is not available, request timed out after 30000ms"
+      },
+      {
+        "at": "03:18",
+        "who": "Karthik Iyer",
+        "msg": "trying: raised Hikari maximumPoolSize to 60"
+      },
+      {
+        "at": "03:27",
+        "who": "Karthik Iyer",
+        "msg": "no luck — connections still failed auth; more failures per second"
+      },
+      {
+        "at": "03:31",
+        "who": "Karthik Iyer",
+        "msg": "paging @Fatima, they've handled this before"
+      },
+      {
+        "at": "03:37",
+        "who": "Fatima Sheikh",
+        "msg": "joining. checking the last change that went out"
+      },
+      {
+        "at": "03:43",
+        "who": "Fatima Sheikh",
+        "msg": "not a pool problem — password authentication failed. Vault rotated creds at 02:00"
+      },
+      {
+        "at": "03:44",
+        "who": "Fatima Sheikh",
+        "msg": "applying: forced ExternalSecret resync and rolling restart of ledger-svc"
+      },
+      {
+        "at": "03:43",
+        "who": "Fatima Sheikh",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "Vault rotated ledger-svc's dynamic postgres credentials; the ExternalSecret did not resync so pods kept the expired lease and every new connection failed authentication. Looks like pool exhaustion, but it is a rotated secret.",
+    "family": "tls-secret-expiry",
+    "fixThatWorked": "forced ExternalSecret resync and rolling restart of ledger-svc",
+    "fixesThatFailed": [
+      "raised Hikari maximumPoolSize to 60"
+    ],
+    "resolvedBy": "Fatima Sheikh",
+    "ttrMinutes": 33,
+    "postMortem": "Impact: Recon delayed 50 min; no customer impact. Trigger: Vault dynamic DB credentials for ledger-svc rotated on schedule (commit a74056e by vault-operator). Root cause: Vault rotated ledger-svc's dynamic postgres credentials; the ExternalSecret did not resync so pods kept the expired lease and every new connection failed authentication. Looks like pool exhaustion, but it is a rotated secret. Resolution: forced ExternalSecret resync and rolling restart of ledger-svc (by Fatima Sheikh, TTR 33 min). What did NOT work: raised Hikari maximumPoolSize to 60 (connections still failed auth; more failures per second). Action items: Link this incident to its family runbook; Add a regression alert."
+  },
+  {
+    "id": "INC-2368",
+    "title": "Payout API errors after config change",
+    "startedAt": "2026-10-08T08:32:00.000Z",
+    "service": "payments-api",
+    "severity": "SEV2",
+    "alert": {
+      "alertname": "PayoutAPIErrorRateHigh",
+      "status": "firing",
+      "labels": {
+        "alertname": "PayoutAPIErrorRateHigh",
+        "service": "payments-api",
+        "severity": "high",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "POST /v1/payouts 5xx 100%",
+        "description": "All payout batches failing.",
+        "runbook_url": "https://runbooks.paynest.internal/payments-api/PayoutAPIErrorRateHigh"
+      },
+      "expr": "sum(rate(http_requests_total{service=\"payments-api\",route=\"/v1/payouts\",code=~\"5..\"}[5m])) > 1",
+      "value": "37",
+      "startsAt": "2026-10-08T08:32:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/payoutapierrorratehigh/view"
+    },
+    "logs": [
+      "2026-10-08T08:31:30.933Z INFO argocd app=payments-api-config sync=Succeeded revision=9be1d04",
+      "2026-10-08T08:31:32.271Z ERROR payments-api-58825f268-aabdc POST /v1/payouts 500 ValueError: invalid literal for int() with base 10: '5k'",
+      "2026-10-08T08:31:33.360Z ERROR payments-api-58825f268-aabdc POST /v1/payouts 500 ValueError: invalid literal for int() with base 10: '5k'",
+      "2026-10-08T08:31:36.971Z LOG postgres-primary duration: 1204.2 ms statement: SELECT * FROM payout_batches WHERE status = 'PENDING'",
+      "2026-10-08T08:31:52.853Z INFO payments-api-58825f268-aabdc db pool ok active=6/20"
+    ],
+    "precedingChange": {
+      "kind": "config",
+      "service": "payments-api",
+      "description": "payments-api-config ConfigMap: PAYOUT_BATCH_SIZE changed to '5k'",
+      "sha": "f644d8f",
+      "author": "Vikram Nair",
+      "at": "2026-10-08T08:26:00.000Z"
+    },
+    "timeline": [
+      {
+        "at": "14:02",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV2] PayoutAPIErrorRateHigh — POST /v1/payouts 5xx 100%"
+      },
+      {
+        "at": "14:04",
+        "who": "Karthik Iyer",
+        "msg": "on it — war room in #inc-bridge"
+      },
+      {
+        "at": "14:09",
+        "who": "Karthik Iyer",
+        "msg": "seeing INFO argocd app=payments-api-config sync=Succeeded revision=9be1d04"
+      },
+      {
+        "at": "14:11",
+        "who": "Karthik Iyer",
+        "msg": "config sync at 14:01, first ValueError at 14:02 — it's the ConfigMap"
+      },
+      {
+        "at": "14:12",
+        "who": "Karthik Iyer",
+        "msg": "applying: reverted payments-api-config to previous revision via ArgoCD and reloaded"
+      },
+      {
+        "at": "14:16",
+        "who": "Karthik Iyer",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "Config push set PAYOUT_BATCH_SIZE='5k' (string) in payments-api-config; payout handler failed to parse it and every payout request 500'd.",
+    "family": "bad-config-push",
+    "fixThatWorked": "reverted payments-api-config to previous revision via ArgoCD and reloaded",
+    "fixesThatFailed": [],
+    "resolvedBy": "Karthik Iyer",
+    "ttrMinutes": 14,
+    "postMortem": "Impact: Merchant payouts delayed 14 min. Trigger: payments-api-config ConfigMap: PAYOUT_BATCH_SIZE changed to '5k' (commit f644d8f by Vikram Nair). Root cause: Config push set PAYOUT_BATCH_SIZE='5k' (string) in payments-api-config; payout handler failed to parse it and every payout request 500'd. Resolution: reverted payments-api-config to previous revision via ArgoCD and reloaded (by Karthik Iyer, TTR 14 min). Action items: Link this incident to its family runbook; Add a regression alert."
+  },
+  {
+    "id": "INC-2372",
+    "title": "Festive sale day 1 — payments-api DB pool timeouts",
+    "startedAt": "2026-10-10T14:45:00.000Z",
+    "service": "payments-api",
+    "severity": "SEV1",
+    "alert": {
+      "alertname": "PaymentsLatencyP99High",
+      "status": "firing",
+      "labels": {
+        "alertname": "PaymentsLatencyP99High",
+        "service": "payments-api",
+        "severity": "critical",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "payments-api p99 6.2s during Festive Sale",
+        "description": "Traffic 4.5x normal; DB pool waits observed.",
+        "runbook_url": "https://runbooks.paynest.internal/payments-api/PaymentsLatencyP99High"
+      },
+      "expr": "histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{service=\"payments-api\"}[5m]))) > 2",
+      "value": "6.2",
+      "startsAt": "2026-10-10T14:45:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/paymentslatencyp99high/view"
+    },
+    "logs": [
+      "2026-10-10T14:44:15.437Z ERROR payments-api-e1ac8f2df-cddle sqlalchemy.exc.TimeoutError: QueuePool limit of size 20 overflow 10 reached, connection timed out, timeout 30.00",
+      "2026-10-10T14:44:12.711Z LOG postgres-primary duration: 2811.034 ms statement: SELECT * FROM merchant_config WHERE merchant_id = $1",
+      "2026-10-10T14:44:30.284Z WARN payments-api-e1ac8f2df-cddle cache miss ratio 83% for prefix merchant:cfg:*",
+      "2026-10-10T14:44:46.820Z WARN redis-cache-0 1:M # evicted 88,410 keys in last 60s (maxmemory-policy allkeys-lru, used_memory=16.0G)",
+      "2026-10-10T14:44:48.707Z INFO payments-api-e1ac8f2df-cddle db pool active=20/20 overflow=10/10"
+    ],
+    "precedingChange": {
+      "kind": "none",
+      "service": "payments-api",
+      "description": "No deploy, config or infra change in the preceding 24h",
+      "sha": null,
+      "author": null,
+      "at": null
+    },
+    "timeline": [
+      {
+        "at": "20:15",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV1] PaymentsLatencyP99High — payments-api p99 6.2s during Festive Sale"
+      },
+      {
+        "at": "20:18",
+        "who": "Priya Raman",
+        "msg": "on it — war room in #inc-bridge"
+      },
+      {
+        "at": "20:19",
+        "who": "Priya Raman",
+        "msg": "seeing LOG postgres-primary duration: 2811.034 ms statement: SELECT * FROM merchant_config WHERE merchant_id = $1"
+      },
+      {
+        "at": "20:23",
+        "who": "Priya Raman",
+        "msg": "trying: raised payments-api pool_size to 40"
+      },
+      {
+        "at": "20:31",
+        "who": "Priya Raman",
+        "msg": "no luck — postgres CPU hit 100%; more concurrent misses"
+      },
+      {
+        "at": "20:35",
+        "who": "Priya Raman",
+        "msg": "paging @Arjun, they've handled this before"
+      },
+      {
+        "at": "20:41",
+        "who": "Arjun Mehta",
+        "msg": "joining. checking the last change that went out"
+      },
+      {
+        "at": "20:48",
+        "who": "Arjun Mehta",
+        "msg": "no deploy, no worker change — the pool is full of merchant_config reads because merchant:cfg:* is being evicted"
+      },
+      {
+        "at": "20:54",
+        "who": "Arjun Mehta",
+        "msg": "applying: scaled redis-cache to 6 shards, enabled stale-while-revalidate on merchant:cfg:*"
+      },
+      {
+        "at": "21:02",
+        "who": "Arjun Mehta",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "Festive-sale peak pushed redis-cache to maxmemory; merchant:cfg:* keys were evicted and the resulting cache stampede flooded postgres with merchant_config reads, which is what exhausted the DB pool. The pool errors are a symptom; the root cause is the Redis eviction storm.",
+    "family": "redis-eviction-storm",
+    "fixThatWorked": "scaled redis-cache to 6 shards, enabled stale-while-revalidate on merchant:cfg:*",
+    "fixesThatFailed": [
+      "raised payments-api pool_size to 40"
+    ],
+    "resolvedBy": "Arjun Mehta",
+    "ttrMinutes": 47,
+    "postMortem": "Impact: p99 ~6s for 45 min at sale peak; ~₹11 Cr GMV delayed. No internal change preceded it. Root cause: Festive-sale peak pushed redis-cache to maxmemory; merchant:cfg:* keys were evicted and the resulting cache stampede flooded postgres with merchant_config reads, which is what exhausted the DB pool. The pool errors are a symptom; the root cause is the Redis eviction storm. Resolution: scaled redis-cache to 6 shards, enabled stale-while-revalidate on merchant:cfg:* (by Arjun Mehta, TTR 47 min). What did NOT work: raised payments-api pool_size to 40 (postgres CPU hit 100%; more concurrent misses). Action items: Link this incident to its family runbook; Add a regression alert."
+  },
+  {
+    "id": "INC-2376",
+    "title": "UPI collect requests expiring",
+    "startedAt": "2026-10-12T04:10:00.000Z",
+    "service": "upi-gateway",
+    "severity": "SEV2",
+    "alert": {
+      "alertname": "UPICollectExpiryHigh",
+      "status": "firing",
+      "labels": {
+        "alertname": "UPICollectExpiryHigh",
+        "service": "upi-gateway",
+        "severity": "high",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "31% of collect requests expiring without RespPay",
+        "description": "Collect requests hitting 300s expiry.",
+        "runbook_url": "https://runbooks.paynest.internal/upi-gateway/UPICollectExpiryHigh"
+      },
+      "expr": "sum(rate(upi_collect_expired_total[10m])) / sum(rate(upi_collect_created_total[10m])) > 0.05",
+      "value": "0.31",
+      "startsAt": "2026-10-12T04:10:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/upicollectexpiryhigh/view"
+    },
+    "logs": [
+      "2026-10-12T04:09:24.482Z WARN upi-gateway-dc2d5f7bf-bcmhh collect PNSTA91F0C2 expired: RespPay not received within 300s payer_psp=ICICI",
+      "2026-10-12T04:09:24.169Z WARN upi-gateway-dc2d5f7bf-bcmhh collect PNSTA91F7D18 expired: RespPay not received within 300s payer_psp=ICICI",
+      "2026-10-12T04:09:44.478Z INFO upi-gateway-dc2d5f7bf-bcmhh ReqPay ack latency ICICI=24.1s others=0.9s",
+      "2026-10-12T04:09:46.869Z WARN upi-gateway-dc2d5f7bf-bcmhh npci-client pool saturation active=187/200"
+    ],
+    "precedingChange": {
+      "kind": "none",
+      "service": "upi-gateway",
+      "description": "No deploy, config or infra change in the preceding 24h",
+      "sha": null,
+      "author": null,
+      "at": null
+    },
+    "timeline": [
+      {
+        "at": "09:40",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV2] UPICollectExpiryHigh — 31% of collect requests expiring without RespPay"
+      },
+      {
+        "at": "09:41",
+        "who": "Arjun Mehta",
+        "msg": "ack, looking"
+      },
+      {
+        "at": "09:44",
+        "who": "Arjun Mehta",
+        "msg": "seeing WARN upi-gateway-dc2d5f7bf-bcmhh collect PNSTA91F0C2 expired: RespPay not received within 300s payer_psp=ICICI"
+      },
+      {
+        "at": "09:48",
+        "who": "Arjun Mehta",
+        "msg": "trying: restarted upi-gateway pods"
+      },
+      {
+        "at": "09:52",
+        "who": "Arjun Mehta",
+        "msg": "no luck — external cause; expiries continued"
+      },
+      {
+        "at": "09:56",
+        "who": "Arjun Mehta",
+        "msg": "paging @Fatima, they've handled this before"
+      },
+      {
+        "at": "10:02",
+        "who": "Fatima Sheikh",
+        "msg": "joining. checking the last change that went out"
+      },
+      {
+        "at": "10:08",
+        "who": "Fatima Sheikh",
+        "msg": "only ICICI — this is the bank at NPCI again, need breaker + failover"
+      },
+      {
+        "at": "10:14",
+        "who": "Fatima Sheikh",
+        "msg": "applying: enabled per-bank circuit breaker for npci-icici and routed ICICI via NPCI-DC2"
+      },
+      {
+        "at": "10:18",
+        "who": "Fatima Sheikh",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "ICICI remitter bank degraded at NPCI; ReqPay acks slowed to ~24s and RespPay never arrived. No per-bank circuit breaker so the shared npci-client pool neared saturation.",
+    "family": "npci-bank-timeout",
+    "fixThatWorked": "enabled per-bank circuit breaker for npci-icici and routed ICICI via NPCI-DC2",
+    "fixesThatFailed": [
+      "restarted upi-gateway pods"
+    ],
+    "resolvedBy": "Fatima Sheikh",
+    "ttrMinutes": 38,
+    "postMortem": "Impact: ~24k collects expired. No internal change preceded it. Root cause: ICICI remitter bank degraded at NPCI; ReqPay acks slowed to ~24s and RespPay never arrived. No per-bank circuit breaker so the shared npci-client pool neared saturation. Resolution: enabled per-bank circuit breaker for npci-icici and routed ICICI via NPCI-DC2 (by Fatima Sheikh, TTR 38 min). What did NOT work: restarted upi-gateway pods (external cause; expiries continued). Action items: Link this incident to its family runbook; Add a regression alert."
+  },
+  {
+    "id": "INC-2380",
+    "title": "Merchant API 401 storm just after midnight",
+    "startedAt": "2026-10-12T18:38:00.000Z",
+    "service": "auth-svc",
+    "severity": "SEV1",
+    "alert": {
+      "alertname": "MerchantAPI401Spike",
+      "status": "firing",
+      "labels": {
+        "alertname": "MerchantAPI401Spike",
+        "service": "auth-svc",
+        "severity": "critical",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "merchant API 401 ratio 58%",
+        "description": "Merchant server-to-server calls rejected.",
+        "runbook_url": "https://runbooks.paynest.internal/auth-svc/MerchantAPI401Spike"
+      },
+      "expr": "sum(rate(http_requests_total{service=\"payments-api\",code=\"401\"}[5m])) / sum(rate(http_requests_total{service=\"payments-api\"}[5m])) > 0.1",
+      "value": "0.58",
+      "startsAt": "2026-10-12T18:38:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/merchantapi401spike/view"
+    },
+    "logs": [
+      "2026-10-12T18:37:36.115Z WARN payments-api-7b9c8d6f5-h4k2p 401 from auth-svc /v1/token/introspect: invalid signature (kid=paynest-2026-10)",
+      "2026-10-12T18:37:40.437Z INFO vault audit: rotate path=transit/keys/jwt-signing new_version=14",
+      "2026-10-12T18:37:47.654Z INFO auth-svc-30d9a83e4-gddlm JWKS cache age=86100s keys=[paynest-2026-09]"
+    ],
+    "precedingChange": {
+      "kind": "secret-rotation",
+      "service": "auth-svc",
+      "description": "Scheduled Vault rotation of the JWT signing key at 00:00",
+      "sha": "3b72e12",
+      "author": "vault-operator",
+      "at": "2026-10-12T18:30:00.000Z"
+    },
+    "timeline": [
+      {
+        "at": "00:08",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV1] MerchantAPI401Spike — merchant API 401 ratio 58%"
+      },
+      {
+        "at": "00:10",
+        "who": "Rahul Verma",
+        "msg": "on it — war room in #inc-bridge"
+      },
+      {
+        "at": "00:13",
+        "who": "Rahul Verma",
+        "msg": "seeing INFO auth-svc-30d9a83e4-gddlm JWKS cache age=86100s keys=[paynest-2026-09]"
+      },
+      {
+        "at": "00:16",
+        "who": "Rahul Verma",
+        "msg": "trying: rolled back auth-svc deploy from the afternoon"
+      },
+      {
+        "at": "00:20",
+        "who": "Rahul Verma",
+        "msg": "no luck — no effect — key cache, not code"
+      },
+      {
+        "at": "00:23",
+        "who": "Rahul Verma",
+        "msg": "paging @Fatima, they've handled this before"
+      },
+      {
+        "at": "00:28",
+        "who": "Fatima Sheikh",
+        "msg": "joining. checking the last change that went out"
+      },
+      {
+        "at": "00:32",
+        "who": "Fatima Sheikh",
+        "msg": "kid paynest-2026-10 isn't in the cached JWKS — rotation at 00:00"
+      },
+      {
+        "at": "00:33",
+        "who": "Fatima Sheikh",
+        "msg": "applying: forced JWKS reload on auth-svc (POST /admin/jwks/reload) and set JWKS cache TTL to 5 min"
+      },
+      {
+        "at": "00:35",
+        "who": "Fatima Sheikh",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "Vault rotated the JWT signing key at midnight; auth-svc kept a 24h cached JWKS without the new kid so every freshly-signed token failed verification.",
+    "family": "tls-secret-expiry",
+    "fixThatWorked": "forced JWKS reload on auth-svc (POST /admin/jwks/reload) and set JWKS cache TTL to 5 min",
+    "fixesThatFailed": [
+      "rolled back auth-svc deploy from the afternoon"
+    ],
+    "resolvedBy": "Fatima Sheikh",
+    "ttrMinutes": 27,
+    "postMortem": "Impact: Merchant API calls failing for 25 min. Trigger: Scheduled Vault rotation of the JWT signing key at 00:00 (commit 3b72e12 by vault-operator). Root cause: Vault rotated the JWT signing key at midnight; auth-svc kept a 24h cached JWKS without the new kid so every freshly-signed token failed verification. Resolution: forced JWKS reload on auth-svc (POST /admin/jwks/reload) and set JWKS cache TTL to 5 min (by Fatima Sheikh, TTR 27 min). What did NOT work: rolled back auth-svc deploy from the afternoon (no effect — key cache, not code). Action items: Link this incident to its family runbook; Add a regression alert."
+  },
+  {
+    "id": "INC-2385",
+    "title": "ledger-svc slow writes after parallel settlement rollout",
+    "startedAt": "2026-10-14T11:00:00.000Z",
+    "service": "ledger-svc",
+    "severity": "SEV2",
+    "alert": {
+      "alertname": "LedgerWriteLatencyHigh",
+      "status": "firing",
+      "labels": {
+        "alertname": "LedgerWriteLatencyHigh",
+        "service": "ledger-svc",
+        "severity": "high",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "ledger-svc write p99 9.4s",
+        "description": "Ledger postings delayed.",
+        "runbook_url": "https://runbooks.paynest.internal/ledger-svc/LedgerWriteLatencyHigh"
+      },
+      "expr": "histogram_quantile(0.99, sum by (le) (rate(ledger_write_duration_seconds_bucket[5m]))) > 5",
+      "value": "9.4",
+      "startsAt": "2026-10-14T11:00:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/ledgerwritelatencyhigh/view"
+    },
+    "logs": [
+      "2026-10-14T10:59:30.114Z ERROR ledger-svc-fd0458a36-edfaf HikariPool-1 - Connection is not available, request timed out after 30000ms (total=80, active=80, idle=0, waiting=311)",
+      "2026-10-14T10:59:44.284Z FATAL postgres-primary: remaining connection slots are reserved for non-replication superuser connections",
+      "2026-10-14T10:59:51.562Z INFO postgres-exporter pg_stat_activity count=598 max_connections=600"
+    ],
+    "precedingChange": {
+      "kind": "deploy",
+      "service": "ledger-svc",
+      "description": "ledger-svc 'parallel settlement': Hikari maximumPoolSize 20 → 80, replicas 6 → 10",
+      "sha": "0735ee2",
+      "author": "Ananya Das",
+      "at": "2026-10-14T10:15:00.000Z"
+    },
+    "timeline": [
+      {
+        "at": "16:30",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV2] LedgerWriteLatencyHigh — ledger-svc write p99 9.4s"
+      },
+      {
+        "at": "16:33",
+        "who": "Arjun Mehta",
+        "msg": "on it — war room in #inc-bridge"
+      },
+      {
+        "at": "16:34",
+        "who": "Arjun Mehta",
+        "msg": "seeing INFO postgres-exporter pg_stat_activity count=598 max_connections=600"
+      },
+      {
+        "at": "16:38",
+        "who": "Arjun Mehta",
+        "msg": "trying: restarted ledger-svc pods"
+      },
+      {
+        "at": "16:44",
+        "who": "Arjun Mehta",
+        "msg": "no luck — pool re-filled immediately"
+      },
+      {
+        "at": "16:46",
+        "who": "Arjun Mehta",
+        "msg": "paging @Priya, they've handled this before"
+      },
+      {
+        "at": "16:51",
+        "who": "Priya Raman",
+        "msg": "joining. checking the last change that went out"
+      },
+      {
+        "at": "16:56",
+        "who": "Priya Raman",
+        "msg": "10 x 80 = 800 > 600 max_connections. same story as the payments-api worker bumps"
+      },
+      {
+        "at": "16:57",
+        "who": "Priya Raman",
+        "msg": "applying: rolled back to maximumPoolSize=20 and put ledger-svc behind pgbouncer transaction pooling"
+      },
+      {
+        "at": "17:01",
+        "who": "Priya Raman",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "Deploy raised Hikari maximumPoolSize to 80 and replicas to 10 (800 potential connections) against postgres max_connections=600, starving every other service and exhausting the pool.",
+    "family": "db-pool-exhaustion",
+    "fixThatWorked": "rolled back to maximumPoolSize=20 and put ledger-svc behind pgbouncer transaction pooling",
+    "fixesThatFailed": [
+      "restarted ledger-svc pods"
+    ],
+    "resolvedBy": "Priya Raman",
+    "ttrMinutes": 31,
+    "postMortem": "Impact: Ledger postings delayed 30 min. Trigger: ledger-svc 'parallel settlement': Hikari maximumPoolSize 20 → 80, replicas 6 → 10 (commit 0735ee2 by Ananya Das). Root cause: Deploy raised Hikari maximumPoolSize to 80 and replicas to 10 (800 potential connections) against postgres max_connections=600, starving every other service and exhausting the pool. Resolution: rolled back to maximumPoolSize=20 and put ledger-svc behind pgbouncer transaction pooling (by Priya Raman, TTR 31 min). What did NOT work: restarted ledger-svc pods (pool re-filled immediately). Action items: Link this incident to its family runbook; Add a regression alert."
+  },
+  {
+    "id": "INC-2387",
+    "title": "Push notifications delayed after topic change",
+    "startedAt": "2026-10-15T14:25:00.000Z",
+    "service": "notif-worker",
+    "severity": "SEV3",
+    "alert": {
+      "alertname": "PushNotificationDelayHigh",
+      "status": "firing",
+      "labels": {
+        "alertname": "PushNotificationDelayHigh",
+        "service": "notif-worker",
+        "severity": "warning",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "push notification p95 delay 14 min",
+        "description": "Payment success push delayed.",
+        "runbook_url": "https://runbooks.paynest.internal/notif-worker/PushNotificationDelayHigh"
+      },
+      "expr": "histogram_quantile(0.95, sum by (le) (rate(push_delivery_seconds_bucket[10m]))) > 60",
+      "value": "840",
+      "startsAt": "2026-10-15T14:25:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/pushnotificationdelayhigh/view"
+    },
+    "logs": [
+      "2026-10-15T14:24:08.617Z INFO kafka-admin altered topic payment.events partitions 24 -> 48",
+      "2026-10-15T14:24:18.989Z INFO notif-worker-5f7c9d8b6-p8x2n Revoke previously assigned partitions payment.events-3, payment.events-17",
+      "2026-10-15T14:24:48.885Z ERROR notif-worker-5f7c9d8b6-p8x2n CommitFailedException: group has already rebalanced",
+      "2026-10-15T14:24:46.217Z INFO burrow consumer_group=notif-worker topic=payment.events total_lag=212,440"
+    ],
+    "precedingChange": {
+      "kind": "config",
+      "service": "kafka",
+      "description": "payment.events partitions increased 24 → 48",
+      "sha": "f92dd97",
+      "author": "Aditya Joshi",
+      "at": "2026-10-15T14:05:00.000Z"
+    },
+    "timeline": [
+      {
+        "at": "19:55",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV3] PushNotificationDelayHigh — push notification p95 delay 14 min"
+      },
+      {
+        "at": "19:56",
+        "who": "Karthik Iyer",
+        "msg": "ack, looking"
+      },
+      {
+        "at": "20:02",
+        "who": "Karthik Iyer",
+        "msg": "seeing ERROR notif-worker-5f7c9d8b6-p8x2n CommitFailedException: group has already rebalanced"
+      },
+      {
+        "at": "20:06",
+        "who": "Karthik Iyer",
+        "msg": "partition bump → rebalance loop"
+      },
+      {
+        "at": "20:21",
+        "who": "Karthik Iyer",
+        "msg": "applying: enabled CooperativeStickyAssignor + static membership and scaled notif-worker to 24 replicas"
+      },
+      {
+        "at": "20:30",
+        "who": "Karthik Iyer",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "Partition increase on payment.events triggered a full eager rebalance of notif-worker; repeated revocations and failed commits left lag growing.",
+    "family": "kafka-consumer-lag",
+    "fixThatWorked": "enabled CooperativeStickyAssignor + static membership and scaled notif-worker to 24 replicas",
+    "fixesThatFailed": [],
+    "resolvedBy": "Karthik Iyer",
+    "ttrMinutes": 35,
+    "postMortem": "Impact: Push delays up to 15 min. Trigger: payment.events partitions increased 24 → 48 (commit f92dd97 by Aditya Joshi). Root cause: Partition increase on payment.events triggered a full eager rebalance of notif-worker; repeated revocations and failed commits left lag growing. Resolution: enabled CooperativeStickyAssignor + static membership and scaled notif-worker to 24 replicas (by Karthik Iyer, TTR 35 min). Action items: Link this incident to its family runbook; Add a regression alert."
+  },
+  {
+    "id": "INC-2392",
+    "title": "payments-api 429 surge during festive traffic",
+    "startedAt": "2026-10-17T06:40:00.000Z",
+    "service": "payments-api",
+    "severity": "SEV1",
+    "alert": {
+      "alertname": "PaymentsAPI4xxSpike",
+      "status": "firing",
+      "labels": {
+        "alertname": "PaymentsAPI4xxSpike",
+        "service": "payments-api",
+        "severity": "critical",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "payments-api 429 ratio 62%",
+        "description": "Looks like traffic surge; merchants reporting throttling.",
+        "runbook_url": "https://runbooks.paynest.internal/payments-api/PaymentsAPI4xxSpike"
+      },
+      "expr": "sum(rate(http_requests_total{service=\"payments-api\",code=\"429\"}[5m])) / sum(rate(http_requests_total{service=\"payments-api\"}[5m])) > 0.05",
+      "value": "0.62",
+      "startsAt": "2026-10-17T06:40:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/paymentsapi4xxspike/view"
+    },
+    "logs": [
+      "2026-10-17T06:39:04.892Z WARN payments-api-737ed94b2-fghfj 429 Too Many Requests merchant=M1029384 limit=50rps",
+      "2026-10-17T06:39:36.001Z WARN payments-api-737ed94b2-fghfj 429 Too Many Requests merchant=M5520192 limit=50rps",
+      "2026-10-17T06:39:48.411Z INFO ingress-nginx total rps 3,810 (festive baseline 3,500)",
+      "2026-10-17T06:39:50.367Z INFO argocd app=payments-api-config sync=Succeeded revision=c41d7e2"
+    ],
+    "precedingChange": {
+      "kind": "config",
+      "service": "payments-api",
+      "description": "payments-api-config: ratelimit.max_rps updated",
+      "sha": "bdae08b",
+      "author": "Rohan Gupta",
+      "at": "2026-10-17T06:31:00.000Z"
+    },
+    "timeline": [
+      {
+        "at": "12:10",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV1] PaymentsAPI4xxSpike — payments-api 429 ratio 62%"
+      },
+      {
+        "at": "12:11",
+        "who": "Sneha Kulkarni",
+        "msg": "acked, opening grafana"
+      },
+      {
+        "at": "12:14",
+        "who": "Sneha Kulkarni",
+        "msg": "seeing WARN payments-api-737ed94b2-fghfj 429 Too Many Requests merchant=M1029384 limit=50rps"
+      },
+      {
+        "at": "12:18",
+        "who": "Sneha Kulkarni",
+        "msg": "trying: scaled payments-api out 2x to absorb the 'surge'"
+      },
+      {
+        "at": "12:22",
+        "who": "Sneha Kulkarni",
+        "msg": "no luck — limit is per-merchant config; more pods, same 429s"
+      },
+      {
+        "at": "12:24",
+        "who": "Sneha Kulkarni",
+        "msg": "paging @Rahul, they've handled this before"
+      },
+      {
+        "at": "12:29",
+        "who": "Rahul Verma",
+        "msg": "joining. checking the last change that went out"
+      },
+      {
+        "at": "12:32",
+        "who": "Rahul Verma",
+        "msg": "traffic is only 9% over baseline — limit=50rps is a typo'd config, not a surge"
+      },
+      {
+        "at": "12:33",
+        "who": "Rahul Verma",
+        "msg": "applying: reverted payments-api-config ratelimit.max_rps to 5000 via ArgoCD"
+      },
+      {
+        "at": "12:32",
+        "who": "Rahul Verma",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "Config push set ratelimit.max_rps=50 (typo for 5000); traffic was normal for the festival but almost all requests were throttled.",
+    "family": "bad-config-push",
+    "fixThatWorked": "reverted payments-api-config ratelimit.max_rps to 5000 via ArgoCD",
+    "fixesThatFailed": [
+      "scaled payments-api out 2x to absorb the 'surge'"
+    ],
+    "resolvedBy": "Rahul Verma",
+    "ttrMinutes": 22,
+    "postMortem": "Impact: 62% of merchant API calls throttled for 20 min. Trigger: payments-api-config: ratelimit.max_rps updated (commit bdae08b by Rohan Gupta). Root cause: Config push set ratelimit.max_rps=50 (typo for 5000); traffic was normal for the festival but almost all requests were throttled. Resolution: reverted payments-api-config ratelimit.max_rps to 5000 via ArgoCD (by Rahul Verma, TTR 22 min). What did NOT work: scaled payments-api out 2x to absorb the 'surge' (limit is per-merchant config; more pods, same 429s). Action items: Link this incident to its family runbook; Add a regression alert."
+  },
+  {
+    "id": "INC-2397",
+    "title": "upi-gateway long GC pauses and latency",
+    "startedAt": "2026-10-18T04:55:00.000Z",
+    "service": "upi-gateway",
+    "severity": "SEV2",
+    "alert": {
+      "alertname": "JVMGCPauseHigh",
+      "status": "firing",
+      "labels": {
+        "alertname": "JVMGCPauseHigh",
+        "service": "upi-gateway",
+        "severity": "high",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "upi-gateway GC pause 4.2s, heap 96%",
+        "description": "Latency p99 22s on upi-gateway.",
+        "runbook_url": "https://runbooks.paynest.internal/upi-gateway/JVMGCPauseHigh"
+      },
+      "expr": "max(jvm_gc_pause_seconds_max{service=\"upi-gateway\"}) > 1",
+      "value": "4.2",
+      "startsAt": "2026-10-18T04:55:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/jvmgcpausehigh/view"
+    },
+    "logs": [
+      "2026-10-18T04:54:08.522Z WARN upi-gateway-02c5c592b-lecdj [GC (Allocation Failure) Full GC pause 4211ms] heap 96%",
+      "2026-10-18T04:54:30.497Z WARN upi-gateway-02c5c592b-lecdj npci-client queued=1000/1000 active=200/200",
+      "2026-10-18T04:54:38.377Z ERROR upi-gateway-02c5c592b-lecdj NPCI ReqPay timeout after 30000ms payer_psp=SBI ifsc=SBIN0000001",
+      "2026-10-18T04:54:46.037Z ERROR upi-gateway-02c5c592b-lecdj java.util.concurrent.RejectedExecutionException: Task rejected from npci-client executor"
+    ],
+    "precedingChange": {
+      "kind": "deploy",
+      "service": "upi-gateway",
+      "description": "upi-gateway deploy: logging library bump",
+      "sha": "021ecc9",
+      "author": "Vikram Nair",
+      "at": "2026-10-18T01:55:00.000Z"
+    },
+    "timeline": [
+      {
+        "at": "10:25",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV2] JVMGCPauseHigh — upi-gateway GC pause 4.2s, heap 96%"
+      },
+      {
+        "at": "10:27",
+        "who": "Priya Raman",
+        "msg": "on it — war room in #inc-bridge"
+      },
+      {
+        "at": "10:31",
+        "who": "Priya Raman",
+        "msg": "seeing WARN upi-gateway-02c5c592b-lecdj npci-client queued=1000/1000 active=200/200"
+      },
+      {
+        "at": "10:33",
+        "who": "Priya Raman",
+        "msg": "trying: increased upi-gateway heap from 4G to 8G"
+      },
+      {
+        "at": "10:39",
+        "who": "Priya Raman",
+        "msg": "no luck — queue kept growing; GC pauses returned"
+      },
+      {
+        "at": "10:41",
+        "who": "Priya Raman",
+        "msg": "trying: rolled back logging library bump"
+      },
+      {
+        "at": "10:48",
+        "who": "Priya Raman",
+        "msg": "no luck — no change"
+      },
+      {
+        "at": "10:51",
+        "who": "Priya Raman",
+        "msg": "paging @Rahul, they've handled this before"
+      },
+      {
+        "at": "10:56",
+        "who": "Rahul Verma",
+        "msg": "joining. checking the last change that went out"
+      },
+      {
+        "at": "11:04",
+        "who": "Rahul Verma",
+        "msg": "the heap is full of queued SBI ReqPay calls — bank timeout again"
+      },
+      {
+        "at": "11:08",
+        "who": "Rahul Verma",
+        "msg": "applying: opened npci-sbi circuit breaker, failed SBI over to NPCI-DC2, timeout 30s → 8s"
+      },
+      {
+        "at": "11:17",
+        "who": "Rahul Verma",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "SBI switch degraded at NPCI; 30s ReqPay timeouts filled the npci-client queue with in-flight requests, which drove heap to 96% and long GC pauses. GC was a symptom of the external bank timeout, not a memory leak.",
+    "family": "npci-bank-timeout",
+    "fixThatWorked": "opened npci-sbi circuit breaker, failed SBI over to NPCI-DC2, timeout 30s → 8s",
+    "fixesThatFailed": [
+      "increased upi-gateway heap from 4G to 8G",
+      "rolled back logging library bump"
+    ],
+    "resolvedBy": "Rahul Verma",
+    "ttrMinutes": 52,
+    "postMortem": "Impact: ~70k UPI txns slow/failed, SBI heaviest. Trigger: upi-gateway deploy: logging library bump (commit 021ecc9 by Vikram Nair). Root cause: SBI switch degraded at NPCI; 30s ReqPay timeouts filled the npci-client queue with in-flight requests, which drove heap to 96% and long GC pauses. GC was a symptom of the external bank timeout, not a memory leak. Resolution: opened npci-sbi circuit breaker, failed SBI over to NPCI-DC2, timeout 30s → 8s (by Rahul Verma, TTR 52 min). What did NOT work: increased upi-gateway heap from 4G to 8G (queue kept growing; GC pauses returned); rolled back logging library bump (no change). Action items: Link this incident to its family runbook; Add a regression alert."
+  },
+  {
+    "id": "INC-2399",
+    "title": "VPA resolution slow on Dussehra evening",
+    "startedAt": "2026-10-20T13:10:00.000Z",
+    "service": "upi-gateway",
+    "severity": "SEV2",
+    "alert": {
+      "alertname": "VPAResolveLatencyHigh",
+      "status": "firing",
+      "labels": {
+        "alertname": "VPAResolveLatencyHigh",
+        "service": "upi-gateway",
+        "severity": "high",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "VPA resolve p99 3.1s",
+        "description": "Pay-to-contact flows slow.",
+        "runbook_url": "https://runbooks.paynest.internal/upi-gateway/VPAResolveLatencyHigh"
+      },
+      "expr": "histogram_quantile(0.99, sum by (le) (rate(vpa_resolve_duration_seconds_bucket[5m]))) > 0.5",
+      "value": "3.1",
+      "startsAt": "2026-10-20T13:10:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/vparesolvelatencyhigh/view"
+    },
+    "logs": [
+      "2026-10-20T13:09:08.071Z INFO redis-cache-0 used_memory_human=15.9G maxmemory_human=16G",
+      "2026-10-20T13:09:42.359Z WARN upi-gateway-6f0087660-dkkce cache miss ratio 69% for prefix vpa:resolve:*",
+      "2026-10-20T13:09:34.202Z LOG postgres-primary duration: 1988.12 ms statement: SELECT * FROM vpa_registry WHERE vpa = $1",
+      "2026-10-20T13:09:53.775Z WARN redis-cache-0 1:M # Client scheduled to be closed ASAP for overcoming of output buffer limits"
+    ],
+    "precedingChange": {
+      "kind": "deploy",
+      "service": "upi-gateway",
+      "description": "upi-gateway deploy: cache full VPA profile incl. KYC blob (~38KB) instead of account ref",
+      "sha": "7f02abc",
+      "author": "Meera Pillai",
+      "at": "2026-10-20T08:10:00.000Z"
+    },
+    "timeline": [
+      {
+        "at": "18:40",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV2] VPAResolveLatencyHigh — VPA resolve p99 3.1s"
+      },
+      {
+        "at": "18:43",
+        "who": "Rahul Verma",
+        "msg": "acked, opening grafana"
+      },
+      {
+        "at": "18:45",
+        "who": "Rahul Verma",
+        "msg": "seeing INFO redis-cache-0 used_memory_human=15.9G maxmemory_human=16G"
+      },
+      {
+        "at": "18:48",
+        "who": "Rahul Verma",
+        "msg": "trying: FLUSHALL on redis-cache"
+      },
+      {
+        "at": "18:55",
+        "who": "Rahul Verma",
+        "msg": "no luck — cold cache doubled DB load"
+      },
+      {
+        "at": "18:57",
+        "who": "Rahul Verma",
+        "msg": "paging @Sneha, they've handled this before"
+      },
+      {
+        "at": "19:01",
+        "who": "Sneha Kulkarni",
+        "msg": "joining. checking the last change that went out"
+      },
+      {
+        "at": "19:09",
+        "who": "Sneha Kulkarni",
+        "msg": "value size went 400B → 38KB after Meera's deploy; redis is full and evicting"
+      },
+      {
+        "at": "19:14",
+        "who": "Sneha Kulkarni",
+        "msg": "applying: rolled back to caching account refs only and raised redis maxmemory to 24GB"
+      },
+      {
+        "at": "19:23",
+        "who": "Sneha Kulkarni",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "Deploy started caching full VPA profiles (~38KB each); combined with Dussehra evening peak redis-cache hit maxmemory and evicted hot vpa:resolve:* keys → stampede onto vpa_registry.",
+    "family": "redis-eviction-storm",
+    "fixThatWorked": "rolled back to caching account refs only and raised redis maxmemory to 24GB",
+    "fixesThatFailed": [
+      "FLUSHALL on redis-cache"
+    ],
+    "resolvedBy": "Sneha Kulkarni",
+    "ttrMinutes": 43,
+    "postMortem": "Impact: VPA resolve slow for 40 min. Trigger: upi-gateway deploy: cache full VPA profile incl. KYC blob (~38KB) instead of account ref (commit 7f02abc by Meera Pillai). Root cause: Deploy started caching full VPA profiles (~38KB each); combined with Dussehra evening peak redis-cache hit maxmemory and evicted hot vpa:resolve:* keys → stampede onto vpa_registry. Resolution: rolled back to caching account refs only and raised redis maxmemory to 24GB (by Sneha Kulkarni, TTR 43 min). What did NOT work: FLUSHALL on redis-cache (cold cache doubled DB load). Action items: Link this incident to its family runbook; Add a regression alert."
+  },
+  {
+    "id": "INC-2401",
+    "title": "Partner webhook deliveries failing",
+    "startedAt": "2026-10-21T01:35:00.000Z",
+    "service": "auth-svc",
+    "severity": "SEV2",
+    "alert": {
+      "alertname": "BlackboxProbeFailed",
+      "status": "firing",
+      "labels": {
+        "alertname": "BlackboxProbeFailed",
+        "service": "auth-svc",
+        "severity": "high",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "probe to api.paynest.in/partner failing",
+        "description": "Partner banks report TLS errors calling our webhook endpoint.",
+        "runbook_url": "https://runbooks.paynest.internal/auth-svc/BlackboxProbeFailed"
+      },
+      "expr": "probe_success{instance=\"api.paynest.in:443\"} == 0",
+      "value": "0",
+      "startsAt": "2026-10-21T01:35:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/blackboxprobefailed/view"
+    },
+    "logs": [
+      "2026-10-21T01:34:39.456Z ERROR blackbox-exporter probe api.paynest.in:443 x509: certificate has expired or is not yet valid",
+      "2026-10-21T01:34:34.651Z E cert-manager/orders \"Failed to finalize order\" \"error\"=\"acme: authorization error for api.paynest.in: 403\"",
+      "2026-10-21T01:34:49.709Z WARN auth-svc-6d62ab4c9-lebff partner callback volume dropped 97%"
+    ],
+    "precedingChange": {
+      "kind": "none",
+      "service": "auth-svc",
+      "description": "No deploy, config or infra change in the preceding 24h",
+      "sha": null,
+      "author": null,
+      "at": null
+    },
+    "timeline": [
+      {
+        "at": "07:05",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV2] BlackboxProbeFailed — probe to api.paynest.in/partner failing"
+      },
+      {
+        "at": "07:08",
+        "who": "Arjun Mehta",
+        "msg": "on it — war room in #inc-bridge"
+      },
+      {
+        "at": "07:09",
+        "who": "Arjun Mehta",
+        "msg": "seeing E cert-manager/orders \"Failed to finalize order\" \"error\"=\"acme: authorization error for api.paynest.in: 403\""
+      },
+      {
+        "at": "07:13",
+        "who": "Arjun Mehta",
+        "msg": "trying: restarted ingress controllers"
+      },
+      {
+        "at": "07:21",
+        "who": "Arjun Mehta",
+        "msg": "no luck — same expired cert served"
+      },
+      {
+        "at": "07:28",
+        "who": "Arjun Mehta",
+        "msg": "cert-manager 403 on the ACME order — same IAM issue as before"
+      },
+      {
+        "at": "07:30",
+        "who": "Arjun Mehta",
+        "msg": "applying: restored Route53 IAM permission and ran `cmctl renew api-paynest-in`"
+      },
+      {
+        "at": "07:34",
+        "who": "Arjun Mehta",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "cert-manager failed to renew the api.paynest.in certificate (DNS-01 challenge denied after IAM change); the cert expired at 07:00.",
+    "family": "tls-secret-expiry",
+    "fixThatWorked": "restored Route53 IAM permission and ran `cmctl renew api-paynest-in`",
+    "fixesThatFailed": [
+      "restarted ingress controllers"
+    ],
+    "resolvedBy": "Arjun Mehta",
+    "ttrMinutes": 29,
+    "postMortem": "Impact: Partner callbacks failed 29 min; reconciled later. No internal change preceded it. Root cause: cert-manager failed to renew the api.paynest.in certificate (DNS-01 challenge denied after IAM change); the cert expired at 07:00. Resolution: restored Route53 IAM permission and ran `cmctl renew api-paynest-in` (by Arjun Mehta, TTR 29 min). What did NOT work: restarted ingress controllers (same expired cert served). Action items: Link this incident to its family runbook; Add a regression alert."
+  },
+  {
+    "id": "INC-2403",
+    "title": "payments-api 5xx after festive HPA change",
+    "startedAt": "2026-10-23T16:00:00.000Z",
+    "service": "payments-api",
+    "severity": "SEV1",
+    "alert": {
+      "alertname": "PaymentsAPIHigh5xxRate",
+      "status": "firing",
+      "labels": {
+        "alertname": "PaymentsAPIHigh5xxRate",
+        "service": "payments-api",
+        "severity": "critical",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "payments-api 5xx ratio 19%",
+        "description": "Errors started as HPA scaled out.",
+        "runbook_url": "https://runbooks.paynest.internal/payments-api/PaymentsAPIHigh5xxRate"
+      },
+      "expr": "sum(rate(http_requests_total{service=\"payments-api\",code=~\"5..\"}[5m])) / sum(rate(http_requests_total{service=\"payments-api\"}[5m])) > 0.05",
+      "value": "0.19",
+      "startsAt": "2026-10-23T16:00:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/paymentsapihigh5xxrate/view"
+    },
+    "logs": [
+      "2026-10-23T15:59:12.819Z INFO horizontal-pod-autoscaler payments-api scaled 18 -> 36 replicas",
+      "2026-10-23T15:59:39.060Z FATAL postgres-primary: remaining connection slots are reserved for non-replication superuser connections",
+      "2026-10-23T15:59:36.588Z LOG pgbouncer-0 closing because: no more connections allowed (max_client_conn)",
+      "2026-10-23T15:59:53.691Z ERROR payments-api-e79ded007-kcbcl POST /v1/payments/collect 503 err=\"db acquire timeout\""
+    ],
+    "precedingChange": {
+      "kind": "config",
+      "service": "payments-api",
+      "description": "payments-api HPA maxReplicas 18 → 40 for festive season",
+      "sha": "20f5157",
+      "author": "Karthik Iyer",
+      "at": "2026-10-23T12:00:00.000Z"
+    },
+    "timeline": [
+      {
+        "at": "21:30",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV1] PaymentsAPIHigh5xxRate — payments-api 5xx ratio 19%"
+      },
+      {
+        "at": "21:31",
+        "who": "Fatima Sheikh",
+        "msg": "on it — war room in #inc-bridge"
+      },
+      {
+        "at": "21:37",
+        "who": "Fatima Sheikh",
+        "msg": "seeing FATAL postgres-primary: remaining connection slots are reserved for non-replication superuser connections"
+      },
+      {
+        "at": "21:38",
+        "who": "Fatima Sheikh",
+        "msg": "trying: scaled payments-api further"
+      },
+      {
+        "at": "21:42",
+        "who": "Fatima Sheikh",
+        "msg": "no luck — made it worse — more connections"
+      },
+      {
+        "at": "21:45",
+        "who": "Fatima Sheikh",
+        "msg": "paging @Priya, they've handled this before"
+      },
+      {
+        "at": "21:48",
+        "who": "Priya Raman",
+        "msg": "joining. checking the last change that went out"
+      },
+      {
+        "at": "21:53",
+        "who": "Priya Raman",
+        "msg": "36 pods x pool 20 — we did this to ourselves with the HPA change"
+      },
+      {
+        "at": "21:54",
+        "who": "Priya Raman",
+        "msg": "applying: capped pool_size to 5 per worker and set HPA maxReplicas back to 24"
+      },
+      {
+        "at": "21:58",
+        "who": "Priya Raman",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "HPA maxReplicas raised to 40; as payments-api scaled to 36 pods each holding pool_size 20, connections exceeded pgbouncer max_client_conn/postgres max_connections — DB pool exhaustion.",
+    "family": "db-pool-exhaustion",
+    "fixThatWorked": "capped pool_size to 5 per worker and set HPA maxReplicas back to 24",
+    "fixesThatFailed": [
+      "scaled payments-api further"
+    ],
+    "resolvedBy": "Priya Raman",
+    "ttrMinutes": 28,
+    "postMortem": "Impact: ~21k collects failed. Trigger: payments-api HPA maxReplicas 18 → 40 for festive season (commit 20f5157 by Karthik Iyer). Root cause: HPA maxReplicas raised to 40; as payments-api scaled to 36 pods each holding pool_size 20, connections exceeded pgbouncer max_client_conn/postgres max_connections — DB pool exhaustion. Resolution: capped pool_size to 5 per worker and set HPA maxReplicas back to 24 (by Priya Raman, TTR 28 min). What did NOT work: scaled payments-api further (made it worse — more connections). Action items: Link this incident to its family runbook; Add a regression alert."
+  },
+  {
+    "id": "INC-2405",
+    "title": "Debit SMS not received — complaints spike",
+    "startedAt": "2026-10-24T07:45:00.000Z",
+    "service": "notif-worker",
+    "severity": "SEV2",
+    "alert": {
+      "alertname": "SMSSentRateDrop",
+      "status": "firing",
+      "labels": {
+        "alertname": "SMSSentRateDrop",
+        "service": "notif-worker",
+        "severity": "high",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "SMS sent rate down 81% vs last week",
+        "description": "Support tickets: 'money debited, no SMS'.",
+        "runbook_url": "https://runbooks.paynest.internal/notif-worker/SMSSentRateDrop"
+      },
+      "expr": "sum(rate(sms_sent_total[10m])) < 0.3 * sum(rate(sms_sent_total[10m] offset 1w))",
+      "value": "0.19",
+      "startsAt": "2026-10-24T07:45:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/smssentratedrop/view"
+    },
+    "logs": [
+      "2026-10-24T07:44:36.027Z WARN notif-worker-21e293b95-lcmgd sms-provider call took 2210ms (batch=5000)",
+      "2026-10-24T07:44:18.137Z ERROR notif-worker-21e293b95-lcmgd CommitFailedException: max.poll.interval.ms=300000 exceeded; group rebalanced",
+      "2026-10-24T07:44:32.520Z INFO kafka-0 [GroupCoordinator 0]: Preparing to rebalance group notif-worker (reason: member left group)",
+      "2026-10-24T07:44:46.418Z INFO burrow consumer_group=notif-worker total_lag=301,882"
+    ],
+    "precedingChange": {
+      "kind": "deploy",
+      "service": "notif-worker",
+      "description": "notif-worker deploy: SMS provider SDK v3 + max.poll.records 500 → 5000",
+      "sha": "b697bed",
+      "author": "Ananya Das",
+      "at": "2026-10-24T06:50:00.000Z"
+    },
+    "timeline": [
+      {
+        "at": "13:15",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV2] SMSSentRateDrop — SMS sent rate down 81% vs last week"
+      },
+      {
+        "at": "13:17",
+        "who": "Rahul Verma",
+        "msg": "ack, looking"
+      },
+      {
+        "at": "13:22",
+        "who": "Rahul Verma",
+        "msg": "seeing INFO kafka-0 [GroupCoordinator 0]: Preparing to rebalance group notif-worker (reason: member left group)"
+      },
+      {
+        "at": "13:23",
+        "who": "Rahul Verma",
+        "msg": "trying: switched to backup SMS provider"
+      },
+      {
+        "at": "13:27",
+        "who": "Rahul Verma",
+        "msg": "no luck — provider was not the bottleneck"
+      },
+      {
+        "at": "13:30",
+        "who": "Rahul Verma",
+        "msg": "paging @Sneha, they've handled this before"
+      },
+      {
+        "at": "13:33",
+        "who": "Sneha Kulkarni",
+        "msg": "joining. checking the last change that went out"
+      },
+      {
+        "at": "13:40",
+        "who": "Sneha Kulkarni",
+        "msg": "batch=5000 x 2s calls blows max.poll.interval — rebalance loop"
+      },
+      {
+        "at": "13:56",
+        "who": "Sneha Kulkarni",
+        "msg": "applying: reverted max.poll.records to 500 and enabled static membership"
+      },
+      {
+        "at": "14:01",
+        "who": "Sneha Kulkarni",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "notif-worker deploy raised max.poll.records to 5000 while SMS calls are synchronous; batches exceeded max.poll.interval.ms, consumers were evicted and the group looped on rebalances — consumer lag, not an SMS provider outage.",
+    "family": "kafka-consumer-lag",
+    "fixThatWorked": "reverted max.poll.records to 500 and enabled static membership",
+    "fixesThatFailed": [
+      "switched to backup SMS provider"
+    ],
+    "resolvedBy": "Sneha Kulkarni",
+    "ttrMinutes": 46,
+    "postMortem": "Impact: 3L debit SMS delayed up to 50 min. Trigger: notif-worker deploy: SMS provider SDK v3 + max.poll.records 500 → 5000 (commit b697bed by Ananya Das). Root cause: notif-worker deploy raised max.poll.records to 5000 while SMS calls are synchronous; batches exceeded max.poll.interval.ms, consumers were evicted and the group looped on rebalances — consumer lag, not an SMS provider outage. Resolution: reverted max.poll.records to 500 and enabled static membership (by Sneha Kulkarni, TTR 46 min). What did NOT work: switched to backup SMS provider (provider was not the bottleneck). Action items: Link this incident to its family runbook; Add a regression alert."
+  },
+  {
+    "id": "INC-2410",
+    "title": "Refunds failing with ledger-svc 404s",
+    "startedAt": "2026-10-26T12:15:00.000Z",
+    "service": "payments-api",
+    "severity": "SEV2",
+    "alert": {
+      "alertname": "RefundFailureRateHigh",
+      "status": "firing",
+      "labels": {
+        "alertname": "RefundFailureRateHigh",
+        "service": "payments-api",
+        "severity": "high",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "refund failure rate 100%",
+        "description": "POST /v1/refunds returning 502.",
+        "runbook_url": "https://runbooks.paynest.internal/payments-api/RefundFailureRateHigh"
+      },
+      "expr": "sum(rate(refund_failed_total[5m])) / sum(rate(refund_requested_total[5m])) > 0.05",
+      "value": "1.0",
+      "startsAt": "2026-10-26T12:15:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/refundfailureratehigh/view"
+    },
+    "logs": [
+      "2026-10-26T12:14:27.026Z ERROR payments-api-874e9dd6b-keajm POST /v1/refunds 502 upstream ledger-svc returned 404 for POST /v2/refunds",
+      "2026-10-26T12:14:40.336Z INFO ledger-svc-6d5c7b8f9-z9k1q routes: /v1/refunds (v2 not deployed)",
+      "2026-10-26T12:14:51.962Z INFO unleash-proxy flag=refund_via_ledger_v2 strategy=default rollout=100%"
+    ],
+    "precedingChange": {
+      "kind": "feature-flag",
+      "service": "payments-api",
+      "description": "Unleash flag refund_via_ledger_v2 enabled",
+      "sha": "5d87680",
+      "author": "Meera Pillai",
+      "at": "2026-10-26T12:04:00.000Z"
+    },
+    "timeline": [
+      {
+        "at": "17:45",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV2] RefundFailureRateHigh — refund failure rate 100%"
+      },
+      {
+        "at": "17:47",
+        "who": "Priya Raman",
+        "msg": "on it — war room in #inc-bridge"
+      },
+      {
+        "at": "17:51",
+        "who": "Priya Raman",
+        "msg": "seeing INFO unleash-proxy flag=refund_via_ledger_v2 strategy=default rollout=100%"
+      },
+      {
+        "at": "17:53",
+        "who": "Priya Raman",
+        "msg": "trying: restarted ledger-svc"
+      },
+      {
+        "at": "17:57",
+        "who": "Priya Raman",
+        "msg": "no luck — the v2 route doesn't exist yet"
+      },
+      {
+        "at": "17:59",
+        "who": "Priya Raman",
+        "msg": "paging @Karthik, they've handled this before"
+      },
+      {
+        "at": "18:04",
+        "who": "Karthik Iyer",
+        "msg": "joining. checking the last change that went out"
+      },
+      {
+        "at": "18:09",
+        "who": "Karthik Iyer",
+        "msg": "flag went 100% 11 min ago; ledger v2 isn't even deployed"
+      },
+      {
+        "at": "18:10",
+        "who": "Karthik Iyer",
+        "msg": "applying: turned off refund_via_ledger_v2 in Unleash"
+      },
+      {
+        "at": "18:04",
+        "who": "Karthik Iyer",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "Flag refund_via_ledger_v2 was flipped to 100% before ledger-svc v2 refunds endpoint was deployed; all refunds hit a non-existent route.",
+    "family": "bad-config-push",
+    "fixThatWorked": "turned off refund_via_ledger_v2 in Unleash",
+    "fixesThatFailed": [
+      "restarted ledger-svc"
+    ],
+    "resolvedBy": "Karthik Iyer",
+    "ttrMinutes": 19,
+    "postMortem": "Impact: Refunds blocked 19 min. Trigger: Unleash flag refund_via_ledger_v2 enabled (commit 5d87680 by Meera Pillai). Root cause: Flag refund_via_ledger_v2 was flipped to 100% before ledger-svc v2 refunds endpoint was deployed; all refunds hit a non-existent route. Resolution: turned off refund_via_ledger_v2 in Unleash (by Karthik Iyer, TTR 19 min). What did NOT work: restarted ledger-svc (the v2 route doesn't exist yet). Action items: Link this incident to its family runbook; Add a regression alert."
+  },
+  {
+    "id": "INC-2415",
+    "title": "UPI success rate collapse across ALL banks",
+    "startedAt": "2026-10-28T18:20:00.000Z",
+    "service": "upi-gateway",
+    "severity": "SEV1",
+    "alert": {
+      "alertname": "UPISuccessRateLow",
+      "status": "firing",
+      "labels": {
+        "alertname": "UPISuccessRateLow",
+        "service": "upi-gateway",
+        "severity": "critical",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "UPI success rate 3% across all payer banks",
+        "description": "Looks like a full NPCI outage.",
+        "runbook_url": "https://runbooks.paynest.internal/upi-gateway/UPISuccessRateLow"
+      },
+      "expr": "sum(rate(upi_txn_total{status=\"success\"}[5m])) / sum(rate(upi_txn_total[5m])) < 0.97",
+      "value": "0.03",
+      "startsAt": "2026-10-28T18:20:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/upisuccessratelow/view"
+    },
+    "logs": [
+      "2026-10-28T18:19:20.858Z ERROR upi-gateway-a866be5de-dabgf NPCI handshake failure: remote error: tls: bad certificate",
+      "2026-10-28T18:19:24.072Z ERROR upi-gateway-a866be5de-dabgf ReqPay failed payer_psp=HDFC err=SSLHandshakeException",
+      "2026-10-28T18:19:32.938Z ERROR upi-gateway-a866be5de-dabgf ReqPay failed payer_psp=SBI err=SSLHandshakeException",
+      "2026-10-28T18:19:51.120Z INFO status.npci.org.in: all systems operational"
+    ],
+    "precedingChange": {
+      "kind": "none",
+      "service": "upi-gateway",
+      "description": "No deploy, config or infra change in the preceding 24h",
+      "sha": null,
+      "author": null,
+      "at": null
+    },
+    "timeline": [
+      {
+        "at": "23:50",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV1] UPISuccessRateLow — UPI success rate 3% across all payer banks"
+      },
+      {
+        "at": "23:52",
+        "who": "Karthik Iyer",
+        "msg": "ack. on it"
+      },
+      {
+        "at": "23:56",
+        "who": "Karthik Iyer",
+        "msg": "seeing ERROR upi-gateway-a866be5de-dabgf ReqPay failed payer_psp=SBI err=SSLHandshakeException"
+      },
+      {
+        "at": "23:58",
+        "who": "Karthik Iyer",
+        "msg": "trying: failed over to NPCI-DC2"
+      },
+      {
+        "at": "00:02",
+        "who": "Karthik Iyer",
+        "msg": "no luck — same client cert rejected there too"
+      },
+      {
+        "at": "00:04",
+        "who": "Karthik Iyer",
+        "msg": "paging @Fatima, they've handled this before"
+      },
+      {
+        "at": "00:10",
+        "who": "Fatima Sheikh",
+        "msg": "joining. checking the last change that went out"
+      },
+      {
+        "at": "00:15",
+        "who": "Fatima Sheikh",
+        "msg": "NPCI status is green and it's bad certificate on OUR side — our client cert expired"
+      },
+      {
+        "at": "00:16",
+        "who": "Fatima Sheikh",
+        "msg": "applying: issued new NPCI mTLS client cert from Vault PKI, updated secret, reloaded upi-gateway"
+      },
+      {
+        "at": "00:14",
+        "who": "Fatima Sheikh",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "PayNest's mTLS client certificate for NPCI expired at 23:45; NPCI rejected every handshake so all banks failed. Not an NPCI outage.",
+    "family": "tls-secret-expiry",
+    "fixThatWorked": "issued new NPCI mTLS client cert from Vault PKI, updated secret, reloaded upi-gateway",
+    "fixesThatFailed": [
+      "failed over to NPCI-DC2"
+    ],
+    "resolvedBy": "Fatima Sheikh",
+    "ttrMinutes": 24,
+    "postMortem": "Impact: Near-total UPI outage for 24 min. No internal change preceded it. Root cause: PayNest's mTLS client certificate for NPCI expired at 23:45; NPCI rejected every handshake so all banks failed. Not an NPCI outage. Resolution: issued new NPCI mTLS client cert from Vault PKI, updated secret, reloaded upi-gateway (by Fatima Sheikh, TTR 24 min). What did NOT work: failed over to NPCI-DC2 (same client cert rejected there too). Action items: Link this incident to its family runbook; Add a regression alert."
+  },
+  {
+    "id": "INC-2419",
+    "title": "payments-api readiness flapping overnight",
+    "startedAt": "2026-10-29T20:40:00.000Z",
+    "service": "payments-api",
+    "severity": "SEV2",
+    "alert": {
+      "alertname": "KubePodReadinessFlapping",
+      "status": "firing",
+      "labels": {
+        "alertname": "KubePodReadinessFlapping",
+        "service": "payments-api",
+        "severity": "high",
+        "cluster": "prod-ap-south-1",
+        "namespace": "payments",
+        "team": "sre"
+      },
+      "annotations": {
+        "summary": "payments-api pods flapping NotReady",
+        "description": "Readiness /readyz failing on 40% of pods.",
+        "runbook_url": "https://runbooks.paynest.internal/payments-api/KubePodReadinessFlapping"
+      },
+      "expr": "sum(changes(kube_pod_status_ready{namespace=\"payments\",pod=~\"payments-api.*\"}[10m])) > 20",
+      "value": "46",
+      "startsAt": "2026-10-29T20:40:00.000Z",
+      "generatorURL": "https://grafana.paynest.internal/alerting/grafana/kubepodreadinessflapping/view"
+    },
+    "logs": [
+      "2026-10-29T20:39:24.274Z WARN payments-api-220c28581-deejb health check /readyz failed: db ping timeout after 2000ms",
+      "2026-10-29T20:39:42.897Z ERROR payments-api-220c28581-deejb sqlalchemy.exc.TimeoutError: QueuePool limit of size 20 overflow 10 reached",
+      "2026-10-29T20:39:42.698Z INFO payments-api-220c28581-deejb settlement-report worker threads=8 holding connections (long transactions)",
+      "2026-10-29T20:39:47.943Z INFO postgres-exporter state_idle_in_transaction=212"
+    ],
+    "precedingChange": {
+      "kind": "deploy",
+      "service": "payments-api",
+      "description": "payments-api deploy: nightly settlement-report background threads share the request pool",
+      "sha": "881c74f",
+      "author": "Rohan Gupta",
+      "at": "2026-10-29T18:30:00.000Z"
+    },
+    "timeline": [
+      {
+        "at": "02:10",
+        "who": "PagerDuty",
+        "msg": "🚨 [SEV2] KubePodReadinessFlapping — payments-api pods flapping NotReady"
+      },
+      {
+        "at": "02:13",
+        "who": "Sneha Kulkarni",
+        "msg": "ack, looking"
+      },
+      {
+        "at": "02:17",
+        "who": "Sneha Kulkarni",
+        "msg": "seeing WARN payments-api-220c28581-deejb health check /readyz failed: db ping timeout after 2000ms"
+      },
+      {
+        "at": "02:18",
+        "who": "Sneha Kulkarni",
+        "msg": "trying: restarted payments-api pods"
+      },
+      {
+        "at": "02:24",
+        "who": "Sneha Kulkarni",
+        "msg": "no luck — pool exhausted again at the next report run"
+      },
+      {
+        "at": "02:27",
+        "who": "Sneha Kulkarni",
+        "msg": "paging @Priya, they've handled this before"
+      },
+      {
+        "at": "02:31",
+        "who": "Priya Raman",
+        "msg": "joining. checking the last change that went out"
+      },
+      {
+        "at": "02:36",
+        "who": "Priya Raman",
+        "msg": "report threads hold connections idle-in-transaction — pool starvation"
+      },
+      {
+        "at": "02:37",
+        "who": "Priya Raman",
+        "msg": "applying: moved settlement-report to its own small pool (size 2) and set idle_in_transaction_session_timeout=60s"
+      },
+      {
+        "at": "02:44",
+        "who": "Priya Raman",
+        "msg": "metrics back to baseline, resolving. will write up the PM"
+      }
+    ],
+    "rootCause": "New settlement-report background threads held DB connections in long idle-in-transaction sessions, exhausting the shared request pool so readiness checks timed out.",
+    "family": "db-pool-exhaustion",
+    "fixThatWorked": "moved settlement-report to its own small pool (size 2) and set idle_in_transaction_session_timeout=60s",
+    "fixesThatFailed": [
+      "restarted payments-api pods"
+    ],
+    "resolvedBy": "Priya Raman",
+    "ttrMinutes": 34,
+    "postMortem": "Impact: Intermittent 503s for 30 min. Trigger: payments-api deploy: nightly settlement-report background threads share the request pool (commit 881c74f by Rohan Gupta). Root cause: New settlement-report background threads held DB connections in long idle-in-transaction sessions, exhausting the shared request pool so readiness checks timed out. Resolution: moved settlement-report to its own small pool (size 2) and set idle_in_transaction_session_timeout=60s (by Priya Raman, TTR 34 min). What did NOT work: restarted payments-api pods (pool exhausted again at the next report run). Action items: Link this incident to its family runbook; Add a regression alert."
+  }
+]
