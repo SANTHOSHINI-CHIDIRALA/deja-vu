@@ -18,6 +18,7 @@ import { join } from "node:path";
 import { diagnoseWithMemory, diagnoseWithoutMemory } from "../lib/agent";
 import {
   countMemories,
+  earlierFailedFixes,
   retainResolution,
   rollingAccuracy,
   scoreSide,
@@ -31,6 +32,7 @@ import { EVAL, HISTORY, toInput } from "../lib/incidents";
 import { PRIMARY_MODEL } from "../lib/llm";
 
 const COLD_BANK = `${BANK_ID}-cold`;
+const ALL_INCIDENTS = [...HISTORY, ...EVAL];
 const WINDOW = 10;
 
 function argNumber(name: string, fallback: number): number {
@@ -61,9 +63,10 @@ async function main(): Promise<void> {
   for (const [index, { incident, phase }] of timeline.entries()) {
     const memoriesBefore = index === 0 ? 0 : await countMemories(COLD_BANK).catch(() => rows.at(-1)?.memoriesBefore ?? 0);
     const input = toInput(incident);
+    const fixContext = { earlierFailed: earlierFailedFixes(incident, ALL_INCIDENTS) };
     const [off, on] = await Promise.all([
-      scoreSide(incident, () => diagnoseWithoutMemory(input)),
-      scoreSide(incident, () => diagnoseWithMemory(input, { bankId: COLD_BANK })),
+      scoreSide(incident, () => diagnoseWithoutMemory(input), fixContext),
+      scoreSide(incident, () => diagnoseWithMemory(input, { bankId: COLD_BANK }), fixContext),
     ]);
     offCorrect += off.correct ? 1 : 0;
     onCorrect += on.correct ? 1 : 0;
@@ -83,8 +86,16 @@ async function main(): Promise<void> {
     };
     rows.push(row);
     row.rolling = { off: rollingAccuracy(rows, WINDOW, "off"), on: rollingAccuracy(rows, WINDOW, "on") };
+    const prev = rows.at(-2)?.fixCumulative ?? { rightFixOff: 0, rightFixOn: 0, repeatedOff: 0, repeatedOn: 0 };
+    row.fixCumulative = {
+      rightFixOff: prev.rightFixOff + (off.rightFix ? 1 : 0),
+      rightFixOn: prev.rightFixOn + (on.rightFix ? 1 : 0),
+      repeatedOff: prev.repeatedOff + (off.repeatedFailedFix ? 1 : 0),
+      repeatedOn: prev.repeatedOn + (on.repeatedFailedFix ? 1 : 0),
+    };
 
-    const mark = (s: SideResult) => (s.error ? "ERR" : s.correct ? "✓" : "✗");
+    const mark = (s: SideResult) =>
+      (s.error ? "ERR" : s.correct ? "✓" : "✗") + (s.rightFix ? " fix✓" : " fix✗") + (s.repeatedFailedFix ? " REPEAT" : "");
     const elapsed = (Date.now() - t0) / 60_000;
     const eta = (elapsed / (index + 1)) * (timeline.length - index - 1);
     console.log(
@@ -104,7 +115,10 @@ async function main(): Promise<void> {
   }
 
   const results = write(rows, t0);
-  console.log(`\nOverall: OFF ${Math.round(results.summary.off.accuracy * 100)}% | ON ${Math.round(results.summary.on.accuracy * 100)}%`);
+  const sm = results.summary;
+  console.log(`\nRoot-cause accuracy: OFF ${Math.round(sm.off.accuracy * 100)}% | ON ${Math.round(sm.on.accuracy * 100)}%`);
+  console.log(`Right fix first try: OFF ${Math.round(sm.off.rightFix * 100)}% | ON ${Math.round(sm.on.rightFix * 100)}%`);
+  console.log(`Known-failed fixes repeated: OFF ${sm.off.repeatedFailed} | ON ${sm.on.repeatedFailed}`);
   for (const b of results.summary.blocks) {
     console.log(`  incidents ${b.from}-${b.to} (memories at start ${b.memoriesAtStart}): OFF ${Math.round(b.off * 100)}%  ON ${Math.round(b.on * 100)}%`);
   }

@@ -36,7 +36,7 @@ export const DIRECTIVES: { name: string; content: string }[] = [
 export const DISPOSITION = { skepticism: 5, literalism: 5, empathy: 3 } as const;
 
 const RETAIN_MISSION =
-  "Extract incident facts: incident ID, date, affected service, symptoms, alert names, the preceding deploy/config change (commit sha and author), the root cause, the fix that worked, every fix that was tried and FAILED, who resolved it, and time to resolve. Keep incident IDs verbatim. For on-call feedback on the agent's own suggestions, always keep the verdict (WORKED or FAILED), the exact fix and the incident ID in the same fact.";
+  "Extract incident facts: incident ID, date, affected service, symptoms, alert names, the preceding deploy/config change (commit sha and author), the root cause, the fix that worked, every fix that was tried and FAILED, who resolved it, and time to resolve. Keep incident IDs, runbook IDs (RB-...), pnctl commands, config keys and route names verbatim — the exact fix command is the most valuable fact. For on-call feedback on the agent's own suggestions, always keep the verdict (WORKED or FAILED), the exact fix and the incident ID in the same fact.";
 
 const OBSERVATIONS_MISSION =
   "Consolidate recurring failure patterns per service: which changes tend to trigger which failures, which fixes reliably work, which fixes repeatedly fail, and which engineers resolve which kinds of incidents. Always keep the incident IDs that support each pattern.";

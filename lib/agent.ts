@@ -91,7 +91,7 @@ function reflectQuery(input: IncidentInput, feedback: MemoryItem[] = []): string
 1. Find the most similar past incidents (same service, same kind of preceding change, same log signatures) and cite their IDs.
 2. Rank up to 3 root-cause hypotheses with confidence, most likely first. Give each a short human-readable title (not just the family id). Only use these family ids for "family": ${FAMILIES.join(", ")} (or "unknown").
    Be skeptical of a recent change that merely coincides in time: prefer the hypothesis whose past incidents match this alert's LOG SIGNATURES (error messages, which bank/key prefix/consumer group is affected).
-3. For each hypothesis give the fix that worked before, adapted to this alert.
+3. For each hypothesis give the fix that worked before in recommendedFix: quote PayNest's exact runbook ID and command (e.g. an RB-... runbook / pnctl command, config key or route) verbatim from the past incidents, adapted to this alert's service/bank/key. Prefer that proven internal action over generic advice.
 4. List fixes that previously FAILED for similar incidents (including any feedback about suggestions for this same alert) under fixesToAvoid, and do not recommend them.
 5. Recommend concrete next checks/commands; flag destructive ones as requiring human approval.
 6. Suggest the engineer who resolved the most similar incidents, with a count (e.g. "fixed 3 of these").

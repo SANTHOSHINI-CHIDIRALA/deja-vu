@@ -160,7 +160,11 @@ export const DIAGNOSIS_JSON_SCHEMA: Record<string, unknown> = {
           confidence: { type: "number", minimum: 0, maximum: 1 },
           citedIncidents: { type: "array", items: { type: "string", pattern: "^INC-\\d{4}$" } },
           evidence: { type: "string", description: "Which alert/log/change details match the cited incidents." },
-          recommendedFix: { type: "string", description: "The fix that worked for the cited incidents, adapted to this alert." },
+          recommendedFix: {
+            type: "string",
+            description:
+              "The fix that worked for the cited incidents, adapted to this alert. Quote PayNest's runbook ID and exact command(s) VERBATIM (e.g. 'RB-XX-00: `pnctl ...`'), not a paraphrase.",
+          },
         },
       },
     },
