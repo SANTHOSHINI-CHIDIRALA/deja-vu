@@ -2,7 +2,7 @@
 
 > When production breaks, Déjà Vu recalls how every similar incident was diagnosed and fixed before, ranks the most likely root cause with **cited past incidents**, warns you about **fixes that already failed**, tells you **who fixed it last time** — and learns from every resolution, so it gets measurably better over time.
 
-Built for the **"AI Agents That Learn Using Hindsight"** hackathon on [Hindsight](https://hindsight.vectorize.io) memory + Groq.
+Built on [Hindsight](https://hindsight.vectorize.io) agent memory + Groq.
 
 <!-- Screenshots / demo GIF -->
 | Incident console (memory OFF vs ON) | Learning curve |
