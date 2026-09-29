@@ -112,7 +112,7 @@ export function Console({ incidents }: { incidents: IncidentInput[] }) {
             <select
               value={selectedId}
               onChange={(e) => setSelectedId(e.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-ink-700 bg-ink-950 px-3 py-2 text-sm outline-none focus:border-accent"
+              className="w-full min-w-0 max-w-full truncate rounded-md border border-ink-700 bg-ink-950 px-3 py-2 text-sm outline-none focus:border-accent sm:w-auto sm:flex-1"
               aria-label="Choose an incident"
             >
               {incidents.map((i) => (
