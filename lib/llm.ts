@@ -11,7 +11,7 @@ export const PRIMARY_MODEL = "openai/gpt-oss-120b";
 export const FALLBACK_MODELS = ["qwen/qwen3.8-27b", "openai/gpt-oss-20b"];
 
 const MIN_GAP_MS = 400; // spacing between calls to stay under free-tier RPM
-const MAX_RETRIES = 2;
+const MAX_RETRIES = 3; // per-minute limits (TPM/OTPM) clear within ~20s
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -96,15 +96,15 @@ async function callOnce(model: string, messages: ChatMessage[], opts: ChatOption
         delete body.response_format;
         continue;
       }
-      // A long retry-after (e.g. the daily token quota) won't clear within our retries:
+      // A retry-after over a minute (e.g. the daily token quota) won't clear within our retries:
       // give up on this model now so chat() falls back to the next one without waiting.
       const retryAfter = Number(res.headers.get("retry-after"));
-      if (res.status === 429 && Number.isFinite(retryAfter) && retryAfter > 10) throw lastErr;
+      if (res.status === 429 && Number.isFinite(retryAfter) && retryAfter > 60) throw lastErr;
       if (res.status !== 429 && res.status < 500) throw lastErr;
     } catch (err) {
       lastErr = err;
       if (err instanceof LlmError && err.status && err.status !== 429 && err.status < 500) throw err;
-      if (err instanceof LlmError && err.status === 429 && Number(res?.headers.get("retry-after")) > 10) throw err;
+      if (err instanceof LlmError && err.status === 429 && Number(res?.headers.get("retry-after")) > 60) throw err;
     }
     if (attempt < MAX_RETRIES) await sleep(retryDelayMs(res, attempt));
   }
