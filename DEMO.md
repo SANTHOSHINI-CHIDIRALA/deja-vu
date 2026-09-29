@@ -41,7 +41,7 @@ Point at the red alert card: `CheckoutSuccessRateLow`, recent change `cabd556` b
   - **Fix →** is PayNest's own runbook, quoted exactly: **`RB-PG-07: pnctl db pool-cap payments-api --size 5 --overflow 5`**. That is the fix that actually resolved every earlier pool incident.
   - A red **Known-failed fixes** list: scaling the HPA, `kubectl rollout restart`, raising `max_connections`.
   - Destructive commands carry a **needs human approval** badge.
-  - At the bottom: **Page Priya Raman**, who resolved the most similar incidents.
+  - At the bottom: **page the engineer the agent suggests** — it picks whoever resolved the most similar incidents.
 
 **Say:** *"Same alert, same evidence on screen. Without memory you get generic advice. With memory you get the exact command this team ran last time, the three things that already failed, and the person who fixed it."*
 
@@ -82,7 +82,7 @@ In the Memory Inspector, your feedback shows at the top of **Recalled** as a pur
 - **With Déjà Vu:** **#1 NPCI bank timeout**, citing earlier NPCI incidents (e.g. INC-2336, INC-2330, INC-2362). It explains that 30 s ReqPay timeouts to SBI are filling the npci-client queue, which is *why* the heap is full.
   - **Fix →** is PayNest's runbook **`RB-UPI-03: pnctl upi failover --psp … --route npci-dc2`**. It may print `[BANK]`; say "SBI".
   - Known-failed fixes include *restarting pods*, *rolling back the recent deploy* and *raising the npci-client timeout*.
-  - It suggests paging **Rahul Verma**.
+  - **Page the engineer the agent suggests** — it picks whoever resolved the most similar incidents.
 
 **Say:** *"The GC pauses are a symptom. PayNest has seen this pattern before: a partner bank slows down and the thread pool backs up. Without memory you'd roll back a harmless logging change at 3am."*
 
@@ -117,14 +117,14 @@ In the Memory Inspector, your feedback shows at the top of **Recalled** as a pur
 
 ## Why these incidents
 
-Re-confirmed on the reseeded bank (29 Sep, 16:30 IST). Memory ON's fixes: INC-2369 → `RB-PG-07` (Priya), INC-2411 → `RB-UPI-03` NPCI-DC2 failover (Rahul), INC-2387 → `RB-CACHE-04` (Arjun). In the fix-level cold eval, memory OFF again got the root cause wrong on all three, and never produced a PayNest runbook fix.
+Re-confirmed on the reseeded bank (29 Sep, 16:30 IST). Memory ON's fixes: INC-2369 → `RB-PG-07`, INC-2411 → `RB-UPI-03` NPCI-DC2 failover, INC-2387 → `RB-CACHE-04`, each with a suggested expert (whoever resolved the most similar incidents; the name can vary between runs). In the fix-level cold eval, memory OFF again got the root cause wrong on all three, and never produced a PayNest runbook fix.
 
 
 Re-running each candidate 3× against the demo bank (`paynest-sre`, 40 history incidents):
 
 | Incident | Ground truth | Memory OFF (3 runs) | Memory ON |
 |---|---|---|---|
-| INC-2369 | DB pool exhaustion after worker bump | "Gunicorn overload" / resource limits (wrong family in warm eval) | DB pool exhaustion, cites worker-bump incidents, pages Priya |
-| **INC-2411** | NPCI/SBI bank timeout | ✗ logging library → GC, **3/3 wrong** | ✓ SBI bank degradation, pages Rahul |
+| INC-2369 | DB pool exhaustion after worker bump | "Gunicorn overload" / resource limits (wrong family in warm eval) | DB pool exhaustion, cites worker-bump incidents, suggests an expert |
+| **INC-2411** | NPCI/SBI bank timeout | ✗ logging library → GC, **3/3 wrong** | ✓ SBI bank degradation, suggests an expert |
 | INC-2387 | Redis eviction storm (festive sale) | ✗ DB pool exhaustion, **3/3 wrong** | ✓ Redis eviction storm / cache stampede |
 | INC-2371 | NPCI/Axis bank timeout (flag push red herring) | 2/3 wrong | ✓ NPCI remitter bank timeout |
