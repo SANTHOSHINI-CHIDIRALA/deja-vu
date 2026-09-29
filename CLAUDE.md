@@ -1,7 +1,5 @@
 # Déjà Vu — the on-call agent that remembers every outage
 
-Target: working, deployed, demo-ready app by 29 Sep 18:00 IST. Scope is ruthless — P0 first, P1 only if P0 is done and deployed.
-
 ## One-liner
 When production breaks, Déjà Vu recalls how every similar incident was diagnosed and fixed before, suggests the most likely root cause with cited past incidents, and learns from each resolution — including fixes that FAILED — so it gets measurably better over time.
 

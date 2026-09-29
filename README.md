@@ -28,7 +28,7 @@ Déjà Vu is an incident console, not a chatbot. The same alert is diagnosed twi
 > The full 3-minute stage script, with exact clicks and what should appear at each step, is in **[DEMO.md](DEMO.md)**.
 
 1. *"It's 2:47am. Checkout success rate is dropping. You're on call."* — pick **INC-2369** and hit **Diagnose**.
-2. **Without memory** (e.g.): "Gunicorn overload, raise pod CPU limits." **With Déjà Vu:** "DB pool exhaustion — deploy `cabd556` doubled workers; same as INC-2237 / INC-2304. Restarting pods FAILED in INC-2292 and INC-2357. Page Priya Raman — she resolved 4 of these."
+2. **Without memory:** generic advice, typically "Gunicorn overload after config change", with a rollback or more CPU/memory, and no past incidents cited. **With Déjà Vu:** DB pool exhaustion caused by deploy `cabd556` doubling workers, citing similar past incidents. It recommends PayNest's own runbook, **`RB-PG-07: pnctl db pool-cap payments-api --size 5 --overflow 5`**, lists the **known-failed fixes** to avoid (scaling the HPA, restarting pods, raising `max_connections`), and suggests paging the engineer who resolved the most similar incidents.
 3. Open the **Memory Inspector**: the exact world facts, experiences and consolidated observations used, with recall scores. Click any `INC-xxxx` to open the past incident.
 4. Click **"✕ This suggestion failed"** on the top fix → **Re-run**. The failed fix moves to *Known-failed fixes*, and a different proven fix is recommended. A purple "What changed" banner shows the diff.
 5. Open **Learning curve**: 40 incidents replayed chronologically from an **empty** memory bank. **Right fix first try: memory OFF 0% vs memory ON 70%.**
