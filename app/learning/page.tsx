@@ -1,16 +1,17 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { ColdStartCharts } from "@/components/ColdStartCharts";
 import { LearningChart } from "@/components/LearningChart";
 import { SERIES } from "@/lib/chart-colors";
 import { FamilyChip } from "@/components/ui";
-import type { EvalResults } from "@/lib/eval";
+import type { ColdResults, EvalResults } from "@/lib/eval";
 import { HISTORY } from "@/lib/incidents";
 
 export const metadata = { title: "Learning curve — Déjà Vu" };
 
-function loadResults(): EvalResults | null {
+function load<T>(file: string): T | null {
   try {
-    return JSON.parse(readFileSync(join(process.cwd(), "data", "eval-results.json"), "utf8")) as EvalResults;
+    return JSON.parse(readFileSync(join(process.cwd(), "data", file), "utf8")) as T;
   } catch {
     return null;
   }
@@ -19,18 +20,28 @@ function loadResults(): EvalResults | null {
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 export default function LearningPage() {
-  const results = loadResults();
+  const results = load<EvalResults>("eval-results.json");
+  const cold = load<ColdResults>("eval-cold-results.json");
   return (
-    <div className="space-y-5">
+    <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Learning curve</h1>
         <p className="max-w-3xl text-sm text-ink-400">
-          20 held-out incidents from October 2026, replayed in order. Both agents see only the alert, logs and recent change. Memory ON starts
-          from PayNest&apos;s 40 past incidents and retains each resolution after it is scored. An LLM judge checks whether the top hypothesis
-          names the right failure family.
+          Both agents see only the alert, logs and recent change; an LLM judge checks whether the top hypothesis names the right failure family.
+          The memory-OFF agent is the same Groq model with no history.
         </p>
       </div>
 
+      <ColdStartSection cold={cold} />
+
+      <section className="space-y-5">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Warm start: 20 held-out incidents with 40 past incidents in memory</h2>
+          <p className="max-w-3xl text-sm text-ink-400">
+            October 2026 incidents replayed in order. Memory ON starts from PayNest&apos;s 40 past incidents and retains each resolution after it
+            is scored. Several of these incidents carry red herrings.
+          </p>
+        </div>
       {!results || !results.rows.length ? (
         <div className="panel p-8 text-center text-sm text-ink-400">
           No evaluation results yet. Run <code className="rounded bg-ink-800 px-1.5 py-0.5 font-mono text-ink-100">npm run eval</code> to
@@ -104,7 +115,86 @@ export default function LearningPage() {
           </section>
         </>
       )}
+      </section>
     </div>
+  );
+}
+
+function ColdStartSection({ cold }: { cold: ColdResults | null }) {
+  if (!cold || !cold.rows.length)
+    return (
+      <section className="panel p-8 text-center text-sm text-ink-400">
+        No cold-start results yet. Run <code className="rounded bg-ink-800 px-1.5 py-0.5 font-mono text-ink-100">npm run eval:cold</code> to
+        generate <code className="font-mono">data/eval-cold-results.json</code>.
+      </section>
+    );
+  const first = cold.summary.blocks[0]!;
+  const last = cold.summary.blocks.at(-1)!;
+  const lastRow = cold.rows.at(-1)!;
+  const evalRows = cold.rows.filter((r) => r.phase === "eval");
+  const evalAcc = (k: "on" | "off") => (evalRows.length ? evalRows.filter((r) => r[k].correct).length / evalRows.length : 0);
+  return (
+    <section className="space-y-5">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">Cold start: learning from an empty memory</h2>
+        <p className="max-w-3xl text-sm text-ink-400">
+          {cold.n} incidents (Mar → Oct 2026) replayed in order against a bank that starts <b className="text-ink-100">empty</b>. Each alert is
+          diagnosed with memory OFF and ON and scored, <i>then</i> its resolution is retained — as if the team just resolved it. Memory ON only
+          ever knows about incidents that happened before.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Overall accuracy" on={pct(cold.summary.on.accuracy)} off={pct(cold.summary.off.accuracy)} />
+        <Stat
+          label={`First ${first.to} incidents`}
+          on={pct(first.on)}
+          off={pct(first.off)}
+          hint={`memory starts empty`}
+        />
+        <Stat label={`Last ${last.to - last.from + 1} incidents`} on={pct(last.on)} off={pct(last.off)} hint={`${last.memoriesAtStart} memories at start`} />
+        <Stat
+          label="Held-out Oct incidents"
+          on={pct(evalAcc("on"))}
+          off={pct(evalAcc("off"))}
+          hint={`${evalRows.length} incidents · ${lastRow.memoriesBefore} memories by the end`}
+        />
+      </div>
+      <div className="panel p-4">
+        <ColdStartCharts rows={cold.rows} window={cold.window} />
+      </div>
+      <div className="panel overflow-x-auto">
+        <table className="w-full min-w-[520px] text-left text-sm">
+          <thead className="text-[11px] uppercase tracking-wider text-ink-400">
+            <tr className="border-b border-ink-700">
+              <th className="px-4 py-2">Incidents</th>
+              <th className="px-2 py-2">Memories at start</th>
+              <th className="px-2 py-2">Memory OFF</th>
+              <th className="px-2 py-2">Memory ON</th>
+              <th className="px-2 py-2">Δ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cold.summary.blocks.map((b) => (
+              <tr key={b.from} className="border-b border-ink-800 tabular-nums">
+                <td className="px-4 py-2 font-mono text-ink-300">
+                  {b.from}–{b.to}
+                </td>
+                <td className="px-2 py-2">{b.memoriesAtStart}</td>
+                <td className="px-2 py-2">{pct(b.off)}</td>
+                <td className="px-2 py-2 font-semibold">{pct(b.on)}</td>
+                <td className={`px-2 py-2 ${b.on > b.off ? "text-emerald-300" : b.on < b.off ? "text-red-300" : "text-ink-400"}`}>
+                  {b.on === b.off ? "±0" : `${b.on > b.off ? "+" : ""}${Math.round((b.on - b.off) * 100)} pts`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="px-4 py-3 text-xs text-ink-400">
+          Generated {new Date(cold.generatedAt).toUTCString()} · bank <span className="font-mono">{cold.bankId}</span> · judge{" "}
+          <span className="font-mono">{cold.judgeModel}</span> · runtime {cold.runtimeMinutes.toFixed(0)} min
+        </p>
+      </div>
+    </section>
   );
 }
 

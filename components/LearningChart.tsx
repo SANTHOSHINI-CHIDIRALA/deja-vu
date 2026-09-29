@@ -34,8 +34,9 @@ export function LearningChart({ rows }: { rows: EvalRow[] }) {
   let offLabelY = last ? y(last.cumulative.offAccuracy) : 0;
   let onLabelY = last ? y(last.cumulative.onAccuracy) : 0;
   if (Math.abs(offLabelY - onLabelY) < 16) {
-    if (onLabelY <= offLabelY) onLabelY = offLabelY - 16;
-    else offLabelY = onLabelY - 16;
+    // ON label goes above OFF; if that would leave the plot, push OFF below instead.
+    if (offLabelY - 16 >= M.top) onLabelY = offLabelY - 16;
+    else offLabelY = onLabelY + 16;
   }
 
   return (
