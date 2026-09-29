@@ -111,25 +111,38 @@ Code layout (small, typed modules):
 
 ## Learning curve result
 
-### Cold start: from an empty memory (`npm run eval:cold`)
+### Headline: does memory give you PayNest's *actual* fix? (`npm run eval:cold`)
 
-`data/eval-cold-results.json` holds all 60 incidents (40 history, Mar–Sep, then 20 held-out, Oct) replayed chronologically against **`paynest-sre-cold`, a bank that starts empty** and is configured like the main bank. Each alert is diagnosed with memory OFF and ON and LLM-judged, **then** its resolution is retained, as if the team had just resolved it. Memory ON only ever knows about earlier incidents. The run took 18.4 min.
+Root-cause *family* turned out to be too coarse. Both agents can usually guess "DB pool exhaustion" from the symptoms. The on-call value of memory is **company-specific knowledge**, so the headline metrics are scored per incident by an LLM judge against ground truth:
 
-| Incidents | Memories in bank at start | Memory OFF | Memory ON |
-|---|---|---|---|
-| 1–10 | 0 | 100% | 100% |
-| 11–20 | 113 | 100% | 100% |
-| 21–30 | 233 | 100% | 100% |
-| 31–40 | 341 | 100% | 100% |
-| 41–50 (Oct, held-out) | 457 | **80%** | 100% |
-| 51–60 (Oct, held-out) | 570 | **90%** | 100% |
-| **All 60** | 0 → 664 | **95%** (57/60) | **100%** (60/60) |
+- **Right fix first try:** the agent's top recommended action is *specifically* the fix that worked for that incident. That means PayNest's runbook action (e.g. `RB-PG-07: pnctl db pool-cap …`, `RB-UPI-03: pnctl upi failover … --route npci-dc2`), not a generic equivalent like "reduce the pool size".
+- **Repeated a known-failed fix:** the recommendation (top fix or next checks) tells you to do something that already FAILED in an earlier incident of the same family (restart pods, scale up, FLUSHALL, raise `max_connections` …).
 
-**Honest read: the memory-ON curve does not climb, it is flat at 100%.**
-- With an empty bank, reflect still reasons from the alert itself, and the 40 generated history incidents have unambiguous log signatures. Both agents get every one of them right.
-- The memory bank grows steadily (0 → 664 memories), and citations per answer grow with it (1–4 over the first 5 incidents, 7.2 on average in October). But on this data, more memory makes the answers better *sourced*, not more *accurate*.
-- The only accuracy gap is on the October red herrings. Memory OFF missed **INC-2369** ("Gunicorn overload"), **INC-2387** ("DB pool exhaustion" when it was a Redis stampede) and **INC-2411** ("logging-library upgrade" when it was an SBI bank timeout). Memory ON got all three right, with 465–590 memories in the bank.
-- To show a *rising* curve, the early history would need incidents that are ambiguous without company context. The current generator doesn't produce enough of them. That is a data limitation, not something we tuned around.
+**Setup:** `data/eval-cold-results.json` holds **40 incidents**: every 2nd history incident (20, Mar–Sep) plus all 20 held-out (Oct). They were replayed chronologically against **`paynest-sre-cold`, which starts empty**. Each alert is diagnosed with memory OFF and ON and judged, **then** its resolution is retained. The run took 20.5 min. History was subsampled because the Groq free-tier daily token quota had been used up by earlier runs.
+
+| Incidents | Memories at start | Right fix first try, OFF | Right fix first try, ON | Known-failed fixes repeated (OFF / ON) | Family accuracy (OFF / ON) |
+|---|---|---|---|---|---|
+| 1–10 | 0 | 0% | 40% | 0 / 1 | 90% / 80% |
+| 11–20 | 117 | 0% | 80% | 3 / 0 | 90% / 100% |
+| 21–30 | 236 | 0% | 80% | 4 / 0 | 80% / 100% |
+| 31–40 | 352 | 0% | 80% | 2 / 1 | 90% / 80% |
+| **All 40** | 0 → 450 | **0%** | **70%** | **9 / 2** | 88% / 90% |
+
+**What this shows:**
+- **Memory OFF never gets PayNest's fix (0/40).** It can't: the runbooks and internal tools exist only in the team's history.
+- **Memory ON learns the fixes.** It scores 0% on the *first* incident of each family (nothing to recall yet), then **82% on recurrences** (28/34) vs 0% for OFF. The block curve climbs from 40% to 80% and holds.
+- **It stops repeating what already failed: 9 vs 2.** Memory OFF told on-call to restart pods, restart `redis-cache-0`, raise `max_connections` or scale `notif-worker` to 30 after those had failed before. Memory ON did it twice (INC-2244 restart pods, INC-2427 offset reset).
+- **Held-out October only:** right fix OFF 0% vs ON 80%; repeated failed fixes OFF 6 vs ON 1.
+
+**Honest caveats:**
+- **Root-cause family accuracy is roughly even here** (ON 90% vs OFF 88%), and lower for ON than in the previous run (100%). ON misclassified INC-2212 and INC-2244 while memory was nearly empty. It also got INC-2420 and INC-2435 wrong, including the "all banks down" red herring, which is actually our own expired mTLS cert. This run's reflect prompt pushes harder for proven runbook actions, and that may bias it toward frequent families. We report it rather than tune it away.
+- **The data was tightened for this metric.** Each family now has one consistent PayNest fix (per mechanism for TLS/secrets and flag/config), which makes the metric learnable. IDs, symptoms, root causes, failed fixes and red herrings are unchanged. See the "Data" section.
+- **Memory OFF's serving model varied.** `gpt-oss-120b` hit Groq's daily token quota mid-afternoon, so memory OFF answered via the fallback models (`gpt-oss-20b` / `qwen3.8-27b`); each result records its model. Both judges ran on `gpt-oss-20b` for both sides.
+- **"Earlier failed fixes"** include every earlier incident of the family in the full dataset, including history incidents skipped by the subsample, which memory ON never saw. That is conservative for memory ON.
+
+### Root-cause family accuracy, cold start (previous 60-incident run)
+
+Before the fix-level metrics existed, a 60-incident cold run scored family accuracy only: memory ON 100% (60/60) vs OFF 95% (57/60). ON was flat from an empty bank; the only gap was the October red herrings. That is why family accuracy is now a secondary chart.
 
 ### Warm start: 40 past incidents already in memory (`npm run eval`)
 
@@ -161,6 +174,7 @@ The within-run learning mechanism (retaining each resolution after scoring) and 
 Fictional **PayNest** — an Indian UPI payments startup (~2M txns/day). Services `payments-api`, `upi-gateway`, `ledger-svc`, `auth-svc`, `notif-worker`, `postgres-primary`, `redis-cache`, `kafka`. On-call: Priya Raman, Arjun Mehta, Sneha Kulkarni, Rahul Verma, Fatima Sheikh, Karthik Iyer.
 
 - `data/history.json` — 40 incidents, Mar–Sep 2026, from 6 recurring families (DB pool exhaustion, Redis eviction storm, NPCI/bank timeout, Kafka consumer lag, expired TLS / rotated secret, bad flag/config push). Each has a Prometheus-style alert, realistic log lines, the preceding change (sha + author), an on-call chat timeline, root cause, fix that worked, 0–2 fixes that failed, resolver, TTR and a post-mortem. Generated deterministically by `npm run gen-data`.
+- **Fixes that worked are PayNest-specific and consistent:** each family recurs with the same internal runbook action via the `pnctl` tool, e.g. `RB-PG-07` pool-cap, `RB-CACHE-04` cache harden, `RB-UPI-03` NPCI-DC2 failover, `RB-KAFKA-02` stabilize, `RB-SEC-01..04`, `RB-REL-01/02` (`scripts/data/fixes.ts`). Fixes that failed are the generic moves on-call reaches for: restart pods, scale up, FLUSHALL, raise timeouts, roll back the image.
 - `data/eval.json` — 20 held-out incidents (Oct 2026) with different surface symptoms, several with **red herrings** (a flag push right before an NPCI outage, DB-pool errors that are really a Redis stampede, an "all banks down" that is actually our expired mTLS client cert).
 
 ## Setup
@@ -191,7 +205,7 @@ Deploy on Vercel: import the repo and set the env vars below. `data/eval-results
 | `npm run check` | Connectivity check for Groq and Hindsight |
 | `npm run gen-data` | Regenerate `data/history.json` + `data/eval.json` (deterministic) |
 | `npm run seed` | Create/configure the bank, retain history, wait for ops. Idempotent. `-- --reset` recreates the bank; `-- --clear-feedback` removes demo feedback memories |
-| `npm run eval:cold` | Cold-start learning curve: replay all 60 incidents chronologically against an empty `paynest-sre-cold` bank, scoring each before retaining its resolution. Writes `data/eval-cold-results.json` (~20 min). `-- --history-stride 2` subsamples history; `-- --limit N` for a smoke run |
+| `npm run eval:cold` | Cold-start learning curve: replay incidents chronologically against an empty `paynest-sre-cold` bank, scoring each (family, right fix first try, repeated known-failed fix) before retaining its resolution. Stores every diagnosis in `data/eval-cold-results.json` so metrics can be rescored. `-- --history-stride 2` subsamples history (40 incidents, ~20 min); `-- --limit N` for a smoke run |
 | `npm run eval` | Seed an isolated `paynest-sre-eval` bank, replay the 20 eval incidents (memory OFF vs ON), LLM-judge them, retain each resolution, write `data/eval-results.json`. `-- --limit N` for a quick run |
 | `npm run build` / `start` | Production build / server |
 

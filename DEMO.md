@@ -37,9 +37,13 @@ Point at the red alert card: `CheckoutSuccessRateLow`, recent change `cabd556` b
   - ⟳ *Reasoning over evidence…*, with an elapsed timer
   
   **Talk over the ~13 s wait:** *"It's searching every past PayNest outage, checking what already failed, then reasoning over the evidence."*
-- Then the memory answer: **#1 DB connection pool exhaustion**, about 90% confidence. It explains that `cabd556` doubled workers, citing past worker-bump incidents (e.g. INC-2237, INC-2304). There is a red **Known-failed fixes** list (restarting pods, scaling the HPA, raising `max_connections`), and destructive commands carry a **needs human approval** badge. At the bottom: **Page Priya Raman**, who resolved most of these.
+- Then the memory answer: **#1 DB connection pool exhaustion**, about 90% confidence. It explains that `cabd556` doubled workers, citing past worker-bump incidents (e.g. INC-2237, INC-2292, INC-2357).
+  - **Fix →** is PayNest's own runbook, quoted exactly: **`RB-PG-07: pnctl db pool-cap payments-api --size 5 --overflow 5`**. That is the fix that actually resolved every earlier pool incident.
+  - A red **Known-failed fixes** list: scaling the HPA, `kubectl rollout restart`, raising `max_connections`.
+  - Destructive commands carry a **needs human approval** badge.
+  - At the bottom: **Page Priya Raman**, who resolved the most similar incidents.
 
-**Say:** *"Same alert, same evidence on screen. The difference is memory: it knows restarting pods didn't work last time, and it knows who fixed it."*
+**Say:** *"Same alert, same evidence on screen. Without memory you get generic advice. With memory you get the exact command this team ran last time, the three things that already failed, and the person who fixed it."*
 
 ## 0:50 – 1:15 · Show the evidence
 
@@ -58,9 +62,10 @@ Point at the red alert card: `CheckoutSuccessRateLow`, recent change `cabd556` b
 
 **Click:** **Re-run with updated memory ↻**. The checklist runs again, and *Checked fixes that failed before* now reports **"1 on-call verdict (1 failed fix)"**.
 
-**What appears:** a purple **"What changed after your feedback"** box, with:
-- the **Recommended fix** struck through and replaced by a different proven fix (e.g. pgbouncer transaction pooling or a rollback);
-- **New fixes to avoid**, listing the fix you just rejected.
+**What appears:** a purple **"What changed after your feedback"** box. In the rehearsal on the reseeded bank:
+- **Recommended fix:** ~~`RB-PG-07: pnctl db pool-cap …`~~ → **`RB-REL-02: pnctl config rollback payments-api-config`** (or `kubectl rollout undo`), i.e. undo the worker bump itself.
+- **New fixes to avoid:** now leads with **RB-PG-07 (pnctl db pool-cap …)**, the fix you just rejected, followed by scaling the HPA and restarting pods.
+- The top hypothesis may also be re-ranked (in the rehearsal it became "Gunicorn worker saturation", 90%).
 
 In the Memory Inspector, your feedback shows at the top of **Recalled** as a purple **on-call feedback** `EXPERIENCE` memory.
 
@@ -74,7 +79,10 @@ In the Memory Inspector, your feedback shows at the top of **Recalled** as a pur
 
 **What appears:**
 - **Without memory:** *"Logging library upgrade caused memory pressure / GC storms"*, recommending rollback of the logging change. This happened in 3 of 3 rehearsal runs. It's **wrong**.
-- **With Déjà Vu:** **#1 NPCI / SBI bank switch degradation**, citing earlier NPCI timeout incidents (e.g. INC-2336, INC-2330, INC-2362). It points out that 30 s ReqPay timeouts to SBI are filling the npci-client queue, which is *why* the heap is full. Known-failed fixes include *restarting upi-gateway pods* and *raising the npci-client timeout*. It suggests paging **Rahul Verma**.
+- **With Déjà Vu:** **#1 NPCI bank timeout**, citing earlier NPCI incidents (e.g. INC-2336, INC-2330, INC-2362). It explains that 30 s ReqPay timeouts to SBI are filling the npci-client queue, which is *why* the heap is full.
+  - **Fix →** is PayNest's runbook **`RB-UPI-03: pnctl upi failover --psp … --route npci-dc2`**. It may print `[BANK]`; say "SBI".
+  - Known-failed fixes include *restarting pods*, *rolling back the recent deploy* and *raising the npci-client timeout*.
+  - It suggests paging **Rahul Verma**.
 
 **Say:** *"The GC pauses are a symptom. PayNest has seen this pattern before: a partner bank slows down and the thread pool backs up. Without memory you'd roll back a harmless logging change at 3am."*
 
@@ -84,11 +92,11 @@ In the Memory Inspector, your feedback shows at the top of **Recalled** as a pur
 
 **Click:** the **Learning curve** tab.
 
-**Top section, Cold start:** point at the stat tiles and the two stacked charts.
-- The top chart shows rolling 10-incident accuracy for memory ON vs OFF over 60 incidents, with the bank starting **empty**.
-- The bottom chart shows **memories in the bank** growing from 0 to 664 as incidents are resolved.
+**Top section, Cold start (the headline):** the bank starts **empty**, then 40 incidents are replayed in order.
+- **Top chart, "Right fix first try":** memory ON climbs to **70% overall (82% on recurrences)**. Memory OFF stays at **0%** because it can never know PayNest's runbooks.
+- **Bottom chart:** cumulative **known-failed fixes repeated**. **OFF 9 vs ON 2**, and OFF keeps telling you to restart pods that didn't help last time.
 
-**Say, honestly:** *"Starting from nothing, memory ON was right on all 60 incidents. The plain LLM was also perfect on the easy ones. But once the misleading incidents arrive in October, it drops to 80–90% while memory ON stays at 100%, with 460+ memories to cite."* Point at the hollow blue dots in October: INC-2369, INC-2387 and INC-2411, the incidents you just demoed. Don't claim the ON line climbs; it's flat.
+**Say, honestly:** *"Guessing the category is easy; both agents do it about 90% of the time. What memory buys is PayNest's actual fix. The plain LLM got it zero times out of 40. With memory, from the second time a failure happens, it hands you the exact runbook 82% of the time, and it stops recommending things that already failed."* Scroll to "Secondary: root-cause family accuracy" only if asked; it's roughly even.
 
 **Scroll to Warm start:** 20 held-out October incidents with 40 past incidents in memory. **Memory ON 100% vs OFF 80%**. The OFF misses are exactly the red herrings, INC-2411 among them. The per-incident table shows what each agent said.
 
@@ -108,6 +116,9 @@ In the Memory Inspector, your feedback shows at the top of **Recalled** as a pur
 | Feedback from rehearsal is showing up | Run `npm run seed -- --clear-feedback` and reload. |
 
 ## Why these incidents
+
+Re-confirmed on the reseeded bank (29 Sep, 16:30 IST). Memory ON's fixes: INC-2369 → `RB-PG-07` (Priya), INC-2411 → `RB-UPI-03` NPCI-DC2 failover (Rahul), INC-2387 → `RB-CACHE-04` (Arjun). In the fix-level cold eval, memory OFF again got the root cause wrong on all three, and never produced a PayNest runbook fix.
+
 
 Re-running each candidate 3× against the demo bank (`paynest-sre`, 40 history incidents):
 

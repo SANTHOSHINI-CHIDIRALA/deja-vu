@@ -27,7 +27,7 @@ export default function LearningPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Learning curve</h1>
         <p className="max-w-3xl text-sm text-ink-400">
-          Both agents see only the alert, logs and recent change; an LLM judge checks whether the top hypothesis names the right failure family.
+          Both agents see only the alert, logs and recent change. An LLM judge scores each answer against ground truth: the failure family and, in the cold-start run, whether the top recommended fix is PayNest&apos;s actual fix.
           The memory-OFF agent is a plain Groq LLM call with no history (the serving model is recorded with each result).
         </p>
       </div>
